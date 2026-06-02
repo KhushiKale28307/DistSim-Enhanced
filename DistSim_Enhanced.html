@@ -1,0 +1,2444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DistSim — Distributed Systems Simulator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#020408; --surface:#06101e; --surface2:#0b1928;
+  --border:#0d2035; --border2:rgba(0,180,255,0.15);
+  --accent:#00b4ff; --accent2:#00ffc8; --accent3:#7c3fff;
+  --danger:#ff2d55; --warn:#ffaa00; --success:#00e87a;
+  --text:#c8dff5; --text2:#4a6580; --text3:#233348;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'IBM Plex Mono',monospace;
+  background:var(--bg); color:var(--text);
+  overflow:hidden; user-select:none;
+}
+h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif}
+
+/* ── SCROLLBARS ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ── PANELS ── */
+.panel{
+  background:rgba(6,16,30,0.94);
+  backdrop-filter:blur(20px);
+  border:1px solid var(--border2);
+  box-shadow:0 0 0 1px var(--border),0 20px 60px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.03);
+}
+.ph{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:10px;font-weight:700;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--text2);
+  padding:9px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+}
+.ph .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+
+/* ── STAT ROWS ── */
+.sr{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:11px}
+.sl{color:var(--text2)}
+.sv{font-weight:600;color:var(--accent);font-family:'IBM Plex Mono',monospace}
+.sv.g{color:var(--success)}
+.sv.r{color:var(--danger)}
+.sv.y{color:var(--warn)}
+.sv.p{color:var(--accent3)}
+
+/* ── TOOLBAR BUTTONS ── */
+.tbtn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:10px;border:1px solid var(--border);
+  background:rgba(255,255,255,0.02);cursor:pointer;
+  transition:all .15s ease;color:var(--text2);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;
+  position:relative;
+}
+.tbtn:hover{background:rgba(0,180,255,.08);border-color:rgba(0,180,255,.4);color:var(--text);transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,180,255,.15)}
+.tbtn.active{background:rgba(0,180,255,.14);border-color:var(--accent);color:var(--accent);box-shadow:0 0 12px rgba(0,180,255,.25)}
+.tbtn.danger-btn{color:var(--danger)}
+.tbtn.danger-btn:hover{background:rgba(255,45,85,.1);border-color:var(--danger)}
+.tbtn.warn-btn{color:var(--warn)}
+.tbtn.warn-btn:hover{background:rgba(255,170,0,.1);border-color:var(--warn)}
+.tbtn.active.danger-btn{background:rgba(255,45,85,.15);border-color:var(--danger);box-shadow:0 0 12px rgba(255,45,85,.25)}
+
+/* ── ICON SVG shapes ── */
+.ni{display:flex;align-items:center;justify-content:center;margin-bottom:4px}
+
+/* ── SPEED BTNS ── */
+.spd{
+  width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border);background:transparent;cursor:pointer;
+  font-size:13px;color:var(--text2);transition:all .1s;
+}
+.spd:hover{color:var(--text);background:rgba(255,255,255,.05)}
+.spd.active{background:rgba(0,180,255,.2);border-color:var(--accent);color:var(--accent)}
+
+/* ── MODAL / MENU ── */
+#main-menu{
+  position:fixed;inset:0;background:rgba(1,3,8,.97);
+  backdrop-filter:blur(24px);z-index:500;
+  display:flex;align-items:center;justify-content:center;
+}
+.menu-wrap{
+  width:560px;
+  background:rgba(6,16,30,.9);
+  border:1px solid rgba(0,180,255,.18);
+  border-radius:20px;padding:52px 48px;
+  box-shadow:0 0 100px rgba(0,180,255,.06),0 40px 80px rgba(0,0,0,.8);
+}
+.logo{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:60px;font-weight:800;letter-spacing:-.03em;line-height:1;
+  background:linear-gradient(135deg,#00b4ff 0%,#00ffc8 60%,#7c3fff 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:6px;
+}
+.logo-sub{color:var(--text2);font-size:10px;letter-spacing:.22em;text-transform:uppercase;margin-bottom:44px}
+.mbtn{
+  display:block;width:100%;padding:14px 22px;border-radius:10px;
+  font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;
+  letter-spacing:.08em;cursor:pointer;transition:all .2s;margin-bottom:10px;
+  text-transform:uppercase;text-align:left;
+}
+.mbtn-primary{
+  background:linear-gradient(135deg,rgba(0,180,255,.12),rgba(0,255,200,.08));
+  border:1px solid rgba(0,180,255,.35);color:var(--accent);
+}
+.mbtn-primary:hover{background:linear-gradient(135deg,rgba(0,180,255,.2),rgba(0,255,200,.15));box-shadow:0 0 30px rgba(0,180,255,.15)}
+.mbtn-secondary{background:rgba(255,255,255,.02);border:1px solid var(--border);color:var(--text2)}
+.mbtn-secondary:hover{background:rgba(255,255,255,.05);color:var(--text)}
+
+/* ── CONFIG PANEL ── */
+#cfg{
+  position:fixed;right:14px;top:50%;transform:translateY(-50%);
+  width:290px;max-height:78vh;overflow-y:auto;
+  border-radius:14px;z-index:30;display:none;
+}
+#cfg.open{display:block}
+.cs{padding:12px 14px;border-bottom:1px solid var(--border)}
+.cl{display:block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:7px}
+.ci{
+  width:100%;background:rgba(0,0,0,.5);border:1px solid var(--border);
+  color:var(--text);border-radius:7px;padding:7px 10px;
+  font-size:12px;font-family:'IBM Plex Mono',monospace;outline:none;
+}
+.ci:focus{border-color:rgba(0,180,255,.4)}
+select.ci option{background:#06101e;color:var(--text)}
+
+/* ── HW MODEL CARD ── */
+.hw-model-card{
+  background:rgba(0,0,0,.4);border:1px solid var(--border);
+  border-radius:9px;padding:10px;margin-bottom:8px;cursor:pointer;
+  transition:all .15s;
+}
+.hw-model-card:hover,.hw-model-card.selected{border-color:var(--accent);background:rgba(0,180,255,.06)}
+.hw-model-card.selected{box-shadow:0 0 12px rgba(0,180,255,.15)}
+.hw-model-name{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px}
+.hw-model-vendor{font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+.hw-specs-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.hw-spec{background:rgba(0,180,255,.05);border:1px solid var(--border);border-radius:5px;padding:5px 7px}
+.hw-spec-val{font-size:12px;font-weight:700;color:var(--accent);font-family:'IBM Plex Mono',monospace}
+.hw-spec-lab{font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em}
+
+/* ── DERIVED METRICS STRIP ── */
+.derived{background:rgba(0,0,0,.35);border-radius:7px;padding:9px 10px;border:1px solid var(--border)}
+
+/* ── TRAFFIC TYPE TAGS ── */
+.tt-tag{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:3px 9px;border-radius:20px;font-size:9px;font-weight:700;
+  cursor:pointer;border:1px solid transparent;transition:all .15s;
+  letter-spacing:.05em;text-transform:uppercase;
+}
+
+/* ── CHAOS BUTTONS ── */
+.cbtn{
+  display:flex;align-items:center;gap:8px;width:100%;padding:9px 10px;
+  border-radius:8px;font-size:10px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.06em;cursor:pointer;border:1px solid transparent;
+  transition:all .15s;margin-bottom:6px;font-family:'IBM Plex Mono',monospace;
+}
+.cbtn-crash{background:rgba(255,45,85,.08);border-color:rgba(255,45,85,.25);color:#ff7090}
+.cbtn-crash:hover{background:rgba(255,45,85,.18);border-color:var(--danger)}
+.cbtn-part{background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.25);color:#ffcc66}
+.cbtn-part:hover{background:rgba(255,170,0,.18);border-color:var(--warn)}
+.cbtn-spike{background:rgba(0,180,255,.08);border-color:rgba(0,180,255,.25);color:#66ccff}
+.cbtn-spike:hover{background:rgba(0,180,255,.18);border-color:var(--accent)}
+.cbtn-cascade{background:rgba(124,63,255,.08);border-color:rgba(124,63,255,.25);color:#aa88ff}
+.cbtn-cascade:hover{background:rgba(124,63,255,.18);border-color:var(--accent3)}
+
+/* ── TOASTS ── */
+#toasts{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:5px;align-items:center;pointer-events:none}
+.toast{padding:8px 18px;border-radius:8px;font-size:11px;font-weight:600;animation:tIn .25s ease-out;white-space:nowrap}
+@keyframes tIn{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:none}}
+.t-danger{background:rgba(255,45,85,.92);border:1px solid var(--danger);color:#fff}
+.t-warn{background:rgba(255,170,0,.92);border:1px solid var(--warn);color:#1a0d00}
+.t-info{background:rgba(0,180,255,.92);border:1px solid var(--accent);color:#001020}
+.t-success{background:rgba(0,232,122,.92);border:1px solid var(--success);color:#001a0a}
+
+/* ── TOOLTIP ── */
+#tip{position:fixed;background:rgba(1,6,16,.97);border:1px solid var(--border2);border-radius:9px;padding:10px 13px;font-size:11px;pointer-events:none;z-index:300;display:none;max-width:230px;box-shadow:0 8px 32px rgba(0,0,0,.6)}
+
+/* ── SLA BARS ── */
+.sla-row{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.sla-n{font-size:9px;width:52px;text-transform:uppercase;letter-spacing:.06em}
+.sla-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.sla-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.sla-v{font-size:9px;width:32px;text-align:right;font-weight:700}
+
+/* ── EVENT LOG ── */
+#elog{position:fixed;right:14px;bottom:14px;width:280px;max-height:150px;overflow-y:auto;border-radius:12px;z-index:20}
+.le{font-size:10px;padding:4px 11px;border-bottom:1px solid var(--border);display:flex;gap:8px}
+.le-time{color:var(--text3);flex-shrink:0}
+.le.d .le-msg{color:#ff8899}
+.le.w .le-msg{color:#ffcc66}
+.le.i .le-msg{color:#88bbff}
+.le.s .le-msg{color:#88ffcc}
+
+/* ── MINIMAP ── */
+#minimap{position:fixed;right:14px;bottom:174px;width:130px;height:90px;border-radius:9px;border:1px solid var(--border2);overflow:hidden;background:rgba(2,4,10,.9);z-index:20}
+
+/* ── NODE SEARCH ── */
+.model-search{
+  width:100%;background:rgba(0,0,0,.5);border:1px solid var(--border);
+  color:var(--text);border-radius:7px;padding:6px 10px;
+  font-size:11px;font-family:'IBM Plex Mono',monospace;outline:none;
+  margin-bottom:8px;
+}
+.model-search:focus{border-color:rgba(0,180,255,.4)}
+.model-list{max-height:220px;overflow-y:auto}
+.cat-label{font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--text3);padding:6px 0 3px;border-bottom:1px solid var(--border);margin-bottom:4px}
+
+/* ── LIVE LOAD BAR ── */
+.load-bar-track{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:6px}
+.load-bar-fill{height:100%;border-radius:2px;transition:width .4s ease}
+
+/* ── CONNECTION MODE HINT ── */
+#conn-hint{
+  position:fixed;top:72px;left:50%;transform:translateX(-50%);
+  background:rgba(0,180,255,.15);border:1px solid rgba(0,180,255,.4);
+  color:var(--accent);border-radius:8px;padding:6px 18px;
+  font-size:11px;font-weight:600;pointer-events:none;z-index:50;display:none;
+}
+
+/* ── FILTER TABS ── */
+.ftab{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:9px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);letter-spacing:.06em;text-transform:uppercase;transition:all .1s;margin-right:4px;margin-bottom:4px}
+.ftab.active,.ftab:hover{border-color:var(--accent);background:rgba(0,180,255,.1);color:var(--accent)}
+
+/* ── SPEED LABEL ── */
+#spd-lbl{font-size:11px;color:var(--text2);padding:0 6px;min-width:32px;text-align:center}
+
+/* ── NODE ACTION BUTTONS ── */
+.na-btn{flex:1;padding:7px;border-radius:7px;font-size:10px;font-family:'IBM Plex Mono',monospace;cursor:pointer;border:1px solid transparent;font-weight:600;text-transform:uppercase;letter-spacing:.05em;transition:all .15s}
+
+/* ── NEW: DATA STATE PANEL ── */
+#data-panel{position:fixed;left:14px;bottom:14px;width:255px;border-radius:13px;z-index:20}
+.consistency-bar{height:4px;border-radius:2px;background:var(--border);overflow:hidden;margin-top:4px}
+.consistency-fill{height:100%;border-radius:2px;transition:width .6s ease,background .6s ease}
+.replica-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:10px;border-bottom:1px solid var(--border3,#0a1825)}
+.replica-badge{font-size:8px;padding:1px 6px;border-radius:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.rb-sync{background:rgba(0,232,122,.15);border:1px solid var(--success);color:var(--success)}
+.rb-lag{background:rgba(255,170,0,.15);border:1px solid var(--warn);color:var(--warn)}
+.rb-stale{background:rgba(255,45,85,.15);border:1px solid var(--danger);color:var(--danger)}
+</style>
+</head>
+<body>
+
+<!-- MAIN MENU -->
+<div id="main-menu">
+<div class="menu-wrap">
+  <div class="logo">DISTSIM</div>
+  <div class="logo-sub">Distributed Systems & Parallel Processing Simulator</div>
+  <button class="mbtn mbtn-primary" onclick="startSim()">▶&nbsp;&nbsp;Launch Simulator</button>
+  <button class="mbtn mbtn-primary" onclick="loadExample()">⬡&nbsp;&nbsp;Load Example Architecture</button>
+  <button class="mbtn mbtn-secondary" onclick="showHelp()">?&nbsp;&nbsp;Quick Reference (Keyboard Shortcuts)</button>
+  <button class="mbtn mbtn-secondary" onclick="saveDesign()">💾&nbsp;&nbsp;Save Current Design</button>
+  <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+    <div style="font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Saved Designs (last 5)</div>
+    <div id="saved-designs-list"><div style="font-size:10px;color:var(--text3);padding:8px 0">No saved designs yet.</div></div>
+  </div>
+  <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);font-size:10px;color:var(--text3);line-height:1.9">
+    Pick real hardware models (H200, M3 Ultra, c7i.48xlarge…) and watch specs auto-fill.<br>
+    Design routing rules, inject chaos, observe cascading failures in real-time 3D.
+  </div>
+</div>
+</div>
+
+<!-- TOOLTIP -->
+<div id="tip"></div>
+<!-- TOASTS -->
+<div id="toasts"></div>
+<!-- CONNECT HINT -->
+<div id="conn-hint">Click a second node to complete connection — ESC to cancel</div>
+
+<!-- TIME CONTROLS (top center) -->
+<div id="time-bar" style="display:none;position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:40">
+  <div class="panel" style="border-radius:40px;padding:7px 16px;display:flex;align-items:center;gap:8px">
+    <button class="spd" id="btn-pause" onclick="setSpeed(0)" title="Pause (Space)">⏸</button>
+    <button class="spd active" id="btn-play" onclick="setSpeed(1)" title="1×">▶</button>
+    <button class="spd" id="btn-fast" onclick="setSpeed(3)" title="3×">⏩</button>
+    <button class="spd" id="btn-hyper" onclick="setSpeed(10)" title="10×">⚡</button>
+    <span id="spd-lbl">1×</span>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span id="elapsed" style="font-size:11px;color:var(--text2);min-width:46px">00:00</span>
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <button class="spd" onclick="resetSim()" title="Reset">↺</button>
+    <button class="spd" onclick="exportArch()" title="Export JSON">↓</button>
+    <button class="spd" onclick="showMainMenu()" title="Menu">☰</button>
+  </div>
+</div>
+
+<!-- RPS BAR (top right) -->
+<div id="rps-bar" style="display:none;position:fixed;top:14px;right:14px;width:195px;border-radius:13px;z-index:30" class="panel">
+  <div class="ph"><span class="dot"></span>Live Metrics</div>
+  <div style="padding:10px 14px">
+    <div class="sr"><span class="sl">RPS</span><span class="sv" id="d-rps">0</span></div>
+    <div class="sr"><span class="sl">Processed</span><span class="sv g" id="d-proc">0</span></div>
+    <div class="sr"><span class="sl">Failures</span><span class="sv r" id="d-fail">0</span></div>
+    <div class="sr"><span class="sl">p99 Latency</span><span class="sv y" id="d-lat">0ms</span></div>
+    <div class="sr"><span class="sl">Partitions</span><span class="sv p" id="d-parts">0</span></div>
+    <canvas id="sparkline" height="36" style="width:100%;margin-top:7px"></canvas>
+  </div>
+</div>
+
+<!-- STATS PANEL (top left) -->
+<div id="stats-panel" style="display:none;position:fixed;left:14px;top:14px;width:255px;border-radius:13px;z-index:30" class="panel">
+  <div class="ph"><span class="dot" style="background:var(--success)"></span>Pipeline Health</div>
+  <div style="padding:10px 14px">
+    <div class="sr"><span class="sl">Nodes Online</span><span class="sv g" id="d-online">0</span></div>
+    <div class="sr"><span class="sl">Nodes Failed</span><span class="sv r" id="d-failed">0</span></div>
+    <div class="sr"><span class="sl">Connections</span><span class="sv" id="d-conns">0</span></div>
+    <div class="sr"><span class="sl">Arch Cost</span><span class="sv y" id="d-cost">$0.00/hr</span></div>
+    <div id="spof-warnings" style="margin-top:8px"></div>
+    <div style="margin-top:11px;padding-top:9px;border-top:1px solid var(--border)">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:7px">SLA Success Rate</div>
+      <div id="sla-bars"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CHAOS PANEL (left middle) -->
+<div id="chaos-panel" style="display:none;position:fixed;left:14px;top:50%;transform:translateY(-50%);width:196px;border-radius:13px;z-index:20" class="panel">
+  <div class="ph"><span class="dot" style="background:var(--danger)"></span>Chaos Engineering</div>
+  <div style="padding:10px 12px">
+    <button class="cbtn cbtn-crash" onclick="injectCrash()"><span>💀</span> Node Crash</button>
+    <button class="cbtn cbtn-part" onclick="injectPartition()"><span>✂</span> Network Partition</button>
+    <button class="cbtn cbtn-spike" onclick="injectSpike()"><span>📈</span> Traffic Spike ×10</button>
+    <button class="cbtn cbtn-cascade" onclick="injectCascade()"><span>🌊</span> Cascading Failure</button>
+    <div style="border-top:1px solid var(--border);padding-top:9px;margin-top:3px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px">Burst Inject</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        <button class="cbtn cbtn-spike" style="padding:6px 8px;font-size:9px;margin:0" onclick="spawnBurst('READ')">📖 READ</button>
+        <button class="cbtn cbtn-spike" style="padding:6px 8px;font-size:9px;margin:0" onclick="spawnBurst('WRITE')">✏ WRITE</button>
+        <button class="cbtn cbtn-spike" style="padding:6px 8px;font-size:9px;margin:0" onclick="spawnBurst('SEARCH')">🔍 SRCH</button>
+        <button class="cbtn cbtn-crash" style="padding:6px 8px;font-size:9px;margin:0" onclick="spawnBurst('MALICIOUS')">⚠ DDoS</button>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:9px;margin-top:8px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:5px">Target RPS</div>
+      <input type="range" id="rps-slider" min="0.5" max="200" step="0.5" value="2" oninput="setRPS(this.value)"
+        style="width:100%;accent-color:var(--accent);cursor:pointer">
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:2px">
+        <span>0.5</span><span id="rps-val" style="color:var(--accent)">2 req/s</span><span>200</span>
+      </div>
+    </div>
+    <!-- AUTO-CRASH INFO -->
+    <div style="border-top:1px solid var(--border);padding-top:9px;margin-top:8px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px">⚡ Auto-Crash System</div>
+      <div style="font-size:9px;color:var(--text2);line-height:1.6;margin-bottom:6px">Nodes crash automatically when load exceeds their threshold for sustained time.</div>
+      <div id="auto-crash-legend" style="font-size:8px;color:var(--text3)">
+        <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid var(--border)"><span>K8s Pod</span><span style="color:#ff8800">85% × 4s</span></div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid var(--border)"><span>SQL DB</span><span style="color:#ff8800">82% × 6s</span></div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid var(--border)"><span>API GW</span><span style="color:#ff8800">90% × 5s</span></div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid var(--border)"><span>Cache</span><span style="color:#ff8800">90% × 4s</span></div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0"><span>Server</span><span style="color:#ff8800">88% × 5s</span></div>
+      </div>
+      <div style="margin-top:6px;font-size:8px;color:var(--text3)">🟠 Orange ring = overloading<br>🔴 Red pulse = crash imminent</div>
+    </div>
+  </div>
+</div>
+
+<!-- METRICS PANEL (bottom left) -->
+<div id="metrics-panel" style="display:none;position:fixed;left:14px;bottom:106px;width:255px;border-radius:13px;z-index:20" class="panel">
+  <div class="ph"><span class="dot" style="background:var(--warn)"></span>Node Inspector</div>
+  <div style="padding:10px 14px" id="node-metrics-content">
+    <div style="font-size:10px;color:var(--text3)">Select a node to inspect its runtime metrics</div>
+  </div>
+</div>
+
+<!-- EVENT LOG (bottom right) -->
+<div id="elog" class="panel" style="display:none">
+  <div class="ph" style="padding:7px 11px"><span class="dot" style="background:var(--text2)"></span>Event Log</div>
+  <div id="elog-entries"></div>
+</div>
+
+<!-- MINIMAP -->
+<div id="minimap" style="display:none"><canvas id="mm-canvas" width="130" height="90"></canvas></div>
+
+<!-- NEW: DATA STATE PANEL (bottom left, above metrics) -->
+<div id="data-panel" class="panel" style="display:none">
+  <div class="ph"><span class="dot" style="background:var(--accent2)"></span>Data State &amp; Consistency</div>
+  <div style="padding:10px 14px">
+    <!-- Primary Value -->
+    <div class="sr">
+      <span class="sl">Primary Value</span>
+      <span class="sv g" id="ds-primary">0</span>
+    </div>
+    <div class="sr">
+      <span class="sl">Write Ops</span>
+      <span class="sv" id="ds-writes">0</span>
+    </div>
+    <div class="sr">
+      <span class="sl">Cache Hits</span>
+      <span class="sv g" id="ds-hits">0</span>
+    </div>
+    <div class="sr">
+      <span class="sl">Cache Misses</span>
+      <span class="sv y" id="ds-misses">0</span>
+    </div>
+    <div class="sr">
+      <span class="sl">Stale Reads</span>
+      <span class="sv r" id="ds-stale">0</span>
+    </div>
+    <!-- Consistency gauge -->
+    <div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border)">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:5px">Replica Consistency</div>
+      <div id="replica-list"></div>
+    </div>
+    <!-- Replication lag -->
+    <div style="margin-top:8px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:4px">Avg Replication Lag</div>
+      <div style="font-size:14px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--warn)" id="ds-rep-lag">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- NODE CONFIG PANEL (right side) -->
+<div id="cfg" class="panel">
+  <div class="ph" id="cfg-title"><span class="dot"></span><span id="cfg-title-text">Node Config</span></div>
+
+  <!-- Name -->
+  <div class="cs">
+    <label class="cl">Node Name</label>
+    <input class="ci" id="cfg-name" type="text" oninput="updateNodeName(this.value)">
+  </div>
+
+  <!-- Hardware Model Selector -->
+  <div class="cs" id="hw-section">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:8px">Hardware Model</div>
+    <input class="model-search" id="hw-search" type="text" placeholder="Search models… (H200, c7i, M3…)" oninput="filterModels(this.value)">
+    <!-- Category filters -->
+    <div id="hw-cats" style="margin-bottom:8px"></div>
+    <!-- Model list -->
+    <div class="model-list" id="hw-model-list"></div>
+    <!-- Derived performance -->
+    <div class="derived" id="hw-derived" style="margin-top:8px;display:none">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:7px">Computed Performance Limits</div>
+      <div class="sr"><span class="sl">Max Throughput</span><span class="sv" id="hw-tput">—</span></div>
+      <div class="sr"><span class="sl">Connection Pool</span><span class="sv" id="hw-conn">—</span></div>
+      <div class="sr"><span class="sl">Base Latency</span><span class="sv y" id="hw-lat">—</span></div>
+      <div class="sr"><span class="sl">Memory BW</span><span class="sv p" id="hw-membw">—</span></div>
+    </div>
+  </div>
+
+  <!-- Routing Rules -->
+  <div class="cs" id="routing-section">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:8px">Traffic Routing</div>
+    <div style="font-size:9px;color:var(--text2);margin-bottom:5px">Allowed Traffic Types:</div>
+    <div id="tt-toggles" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>
+    <label class="cl">Load Balancing Strategy</label>
+    <select class="ci" id="cfg-lb" onchange="updateLB(this.value)">
+      <option value="round-robin">Round Robin</option>
+      <option value="least-conn">Least Connections</option>
+      <option value="weighted">Weighted Random</option>
+      <option value="random">Random</option>
+      <option value="ip-hash">IP Hash</option>
+      <option value="power-of-two">Power of Two Choices</option>
+    </select>
+  </div>
+
+  <!-- Live Stats -->
+  <div class="cs">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:8px">Live Runtime</div>
+    <div class="sr"><span class="sl">CPU Load</span><span class="sv" id="cfg-load">0%</span></div>
+    <div class="load-bar-track"><div class="load-bar-fill" id="cfg-load-bar" style="width:0%;background:var(--accent)"></div></div>
+    <div class="sr" style="margin-top:6px"><span class="sl">Queue Depth</span><span class="sv" id="cfg-queue">0</span></div>
+    <div class="sr"><span class="sl">Processed</span><span class="sv g" id="cfg-proc">0</span></div>
+    <div class="sr"><span class="sl">Errors</span><span class="sv r" id="cfg-err">0</span></div>
+    <div class="sr"><span class="sl">Health</span><span class="sv g" id="cfg-health">OK</span></div>
+  </div>
+
+  <!-- Actions -->
+  <div class="cs">
+    <div style="display:flex;gap:6px">
+      <button class="na-btn" onclick="repairNode()" style="background:rgba(0,232,122,.08);border-color:rgba(0,232,122,.3);color:var(--success)">🔧 Repair</button>
+      <button class="na-btn" onclick="duplicateNode()" style="background:rgba(0,180,255,.08);border-color:rgba(0,180,255,.3);color:var(--accent)">⊕ Clone</button>
+      <button class="na-btn" onclick="deleteSelectedNode()" style="background:rgba(255,45,85,.08);border-color:rgba(255,45,85,.3);color:var(--danger)">✕ Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOOLBAR (bottom center) -->
+<div id="toolbar" style="display:none;position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:40">
+  <div class="panel" style="border-radius:18px;padding:8px 12px;display:flex;align-items:center;gap:6px;overflow-x:auto;max-width:96vw">
+    <!-- Action tools -->
+    <div style="display:flex;gap:4px;padding-right:10px;border-right:1px solid var(--border)">
+      <button class="tbtn active" id="tool-select" style="width:44px;height:44px" onclick="setTool('select')" title="Select (S)">
+        <div class="ni" style="font-size:16px">⊹</div>
+      </button>
+      <button class="tbtn" id="tool-connect" style="width:44px;height:44px" onclick="setTool('connect')" title="Connect (C)">
+        <div class="ni" style="font-size:16px">⌁</div>
+      </button>
+      <button class="tbtn danger-btn" id="tool-delete" style="width:44px;height:44px" onclick="setTool('delete')" title="Delete (Del)">
+        <div class="ni" style="font-size:16px">✕</div>
+      </button>
+      <button class="tbtn warn-btn" id="tool-unlink" style="width:44px;height:44px" onclick="setTool('unlink')" title="Unlink">
+        <div class="ni" style="font-size:15px">⌀</div>
+      </button>
+      <button class="tbtn" style="width:44px;height:44px" onclick="saveDesign()" title="Save Design">
+        <div class="ni" style="font-size:16px">💾</div>
+      </button>
+    </div>
+    <!-- Node types -->
+    <div style="display:flex;gap:4px">
+      <button class="tbtn" id="tool-lb" style="width:64px;height:64px" onclick="setTool('lb')">
+        <div class="ni"><svg width="22" height="14" viewBox="0 0 22 14"><rect x="1" y="1" width="20" height="12" rx="6" fill="none" stroke="#3b82f6" stroke-width="1.5"/><circle cx="11" cy="7" r="2" fill="#3b82f6"/></svg></div>
+        <span style="color:#3b82f6">Load Bal</span>
+      </button>
+      <button class="tbtn" id="tool-fw" style="width:64px;height:64px" onclick="setTool('fw')">
+        <div class="ni"><svg width="18" height="20" viewBox="0 0 18 20"><polygon points="9,1 17,5 17,13 9,19 1,13 1,5" fill="none" stroke="#a855f7" stroke-width="1.5"/><line x1="9" y1="5" x2="9" y2="15" stroke="#a855f7" stroke-width="1.2"/></svg></div>
+        <span style="color:#a855f7">Firewall</span>
+      </button>
+      <button class="tbtn" id="tool-apigw" style="width:64px;height:64px" onclick="setTool('apigw')">
+        <div class="ni"><svg width="20" height="20" viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="2" fill="none" stroke="#e879f9" stroke-width="1.5" transform="rotate(45 10 10)"/></svg></div>
+        <span style="color:#e879f9">API GW</span>
+      </button>
+      <button class="tbtn" id="tool-queue" style="width:64px;height:64px" onclick="setTool('queue')">
+        <div class="ni"><svg width="24" height="13" viewBox="0 0 24 13"><rect x="1" y="1" width="22" height="11" rx="2" fill="none" stroke="#f97316" stroke-width="1.5"/><line x1="7" y1="1" x2="7" y2="12" stroke="#f97316" stroke-width="1" opacity=".5"/><line x1="13" y1="1" x2="13" y2="12" stroke="#f97316" stroke-width="1" opacity=".5"/></svg></div>
+        <span style="color:#f97316">Queue</span>
+      </button>
+      <button class="tbtn" id="tool-server" style="width:64px;height:64px" onclick="setTool('server')">
+        <div class="ni"><svg width="22" height="17" viewBox="0 0 22 17"><rect x="1" y="1" width="20" height="15" rx="3" fill="none" stroke="#f97316" stroke-width="1.5"/><circle cx="5" cy="8.5" r="2" fill="#f97316" opacity=".7"/><line x1="9" y1="5" x2="19" y2="5" stroke="#f97316" stroke-width="1" opacity=".5"/><line x1="9" y1="8.5" x2="19" y2="8.5" stroke="#f97316" stroke-width="1" opacity=".5"/><line x1="9" y1="12" x2="19" y2="12" stroke="#f97316" stroke-width="1" opacity=".5"/></svg></div>
+        <span style="color:#f97316">Server</span>
+      </button>
+      <button class="tbtn" id="tool-k8s" style="width:64px;height:64px" onclick="setTool('k8s')">
+        <div class="ni"><svg width="20" height="22" viewBox="0 0 20 22"><polygon points="10,1 19,5.5 19,16.5 10,21 1,16.5 1,5.5" fill="none" stroke="#326de6" stroke-width="1.5"/><circle cx="10" cy="11" r="3" fill="none" stroke="#326de6" stroke-width="1.2"/></svg></div>
+        <span style="color:#326de6">K8s Pod</span>
+      </button>
+      <button class="tbtn" id="tool-db" style="width:64px;height:64px" onclick="setTool('db')">
+        <div class="ni"><svg width="18" height="22" viewBox="0 0 18 22"><ellipse cx="9" cy="5" rx="8" ry="4" fill="none" stroke="#dc2626" stroke-width="1.5"/><path d="M1 5 v12 a8 4 0 0 0 16 0 V5" fill="none" stroke="#dc2626" stroke-width="1.5"/><line x1="1" y1="11" x2="17" y2="11" stroke="#dc2626" stroke-width="1" opacity=".5"/></svg></div>
+        <span style="color:#dc2626">SQL DB</span>
+      </button>
+      <button class="tbtn" id="tool-nosql" style="width:64px;height:64px" onclick="setTool('nosql')">
+        <div class="ni"><svg width="18" height="22" viewBox="0 0 18 22"><ellipse cx="9" cy="5" rx="8" ry="4" fill="none" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="3 2"/><path d="M1 5 v12 a8 4 0 0 0 16 0 V5" fill="none" stroke="#7c3aed" stroke-width="1.5"/></svg></div>
+        <span style="color:#7c3aed">NoSQL</span>
+      </button>
+      <button class="tbtn" id="tool-cache" style="width:64px;height:64px" onclick="setTool('cache')">
+        <div class="ni"><svg width="22" height="16" viewBox="0 0 22 16"><rect x="1" y="1" width="20" height="14" rx="3" fill="none" stroke="#dc382d" stroke-width="1.5" stroke-dasharray="4 2"/><text x="11" y="11" text-anchor="middle" fill="#dc382d" font-size="8" font-family="monospace">MEM</text></svg></div>
+        <span style="color:#dc382d">Cache</span>
+      </button>
+      <button class="tbtn" id="tool-cdn" style="width:64px;height:64px" onclick="setTool('cdn')">
+        <div class="ni"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="none" stroke="#4ade80" stroke-width="1.5"/><ellipse cx="10" cy="10" rx="4" ry="9" fill="none" stroke="#4ade80" stroke-width="1" opacity=".5"/><line x1="1" y1="10" x2="19" y2="10" stroke="#4ade80" stroke-width="1" opacity=".5"/></svg></div>
+        <span style="color:#4ade80">CDN</span>
+      </button>
+      <button class="tbtn" id="tool-storage" style="width:64px;height:64px" onclick="setTool('storage')">
+        <div class="ni"><svg width="20" height="16" viewBox="0 0 20 16"><rect x="1" y="1" width="18" height="14" rx="2" fill="rgba(16,185,129,.15)" stroke="#10b981" stroke-width="1.5"/><line x1="1" y1="6" x2="19" y2="6" stroke="#10b981" stroke-width="1" opacity=".5"/></svg></div>
+        <span style="color:#10b981">Storage</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 3D CANVAS -->
+<div id="canvas-container"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// HARDWARE MODEL DATABASE
+// ═══════════════════════════════════════════════════════════
+const HW_DB = {
+  "NVIDIA H200 SXM": { vendor:"NVIDIA", cat:"GPU/AI", cpu:0, gpu:"H200", vram:141, ramGB:0, diskMBs:0, netGbps:400, tflops:989, membwGBs:4800, tdpW:700, desc:"Flagship Hopper GPU with HBM3e" },
+  "NVIDIA H100 SXM5": { vendor:"NVIDIA", cat:"GPU/AI", cpu:0, gpu:"H100", vram:80, ramGB:0, diskMBs:0, netGbps:400, tflops:700, membwGBs:3350, tdpW:700, desc:"Hopper generation AI GPU" },
+  "NVIDIA A100 80GB": { vendor:"NVIDIA", cat:"GPU/AI", cpu:0, gpu:"A100", vram:80, ramGB:0, diskMBs:0, netGbps:400, tflops:312, membwGBs:2039, tdpW:400, desc:"Ampere GPU — workhorse for LLM training" },
+  "NVIDIA L40S": { vendor:"NVIDIA", cat:"GPU/AI", cpu:0, gpu:"L40S", vram:48, ramGB:0, diskMBs:0, netGbps:50, tflops:91.6, membwGBs:864, tdpW:350, desc:"Ada Lovelace inference GPU" },
+  "NVIDIA RTX 4090": { vendor:"NVIDIA", cat:"GPU/AI", cpu:0, gpu:"RTX4090", vram:24, ramGB:0, diskMBs:0, netGbps:10, tflops:82.6, membwGBs:1008, tdpW:450, desc:"Consumer flagship — dev workstation GPU" },
+  "AMD MI300X": { vendor:"AMD", cat:"GPU/AI", cpu:0, gpu:"MI300X", vram:192, ramGB:0, diskMBs:0, netGbps:400, tflops:653, membwGBs:5300, tdpW:750, desc:"CDNA3 GPU with record HBM3 capacity" },
+  "Google TPU v5e": { vendor:"Google", cat:"GPU/AI", cpu:0, gpu:"TPUv5e", vram:16, ramGB:0, diskMBs:0, netGbps:800, tflops:197, membwGBs:1600, tdpW:200, desc:"Google's 5th-gen edge TPU" },
+  "Apple M3 Ultra": { vendor:"Apple", cat:"Apple Silicon", cpu:32, gpu:"M3U", vram:0, ramGB:192, diskMBs:22000, netGbps:10, tflops:34.8, membwGBs:819, tdpW:215, desc:"32-core CPU, 80-core GPU, 192GB unified" },
+  "Apple M3 Max": { vendor:"Apple", cat:"Apple Silicon", cpu:16, gpu:"M3Max", vram:0, ramGB:128, diskMBs:15000, netGbps:10, tflops:14.2, membwGBs:400, tdpW:92, desc:"16-core CPU, 40-core GPU" },
+  "Apple M3 Pro": { vendor:"Apple", cat:"Apple Silicon", cpu:12, gpu:"M3Pro", vram:0, ramGB:36, diskMBs:7400, netGbps:10, tflops:5.6, membwGBs:153, tdpW:30, desc:"12-core CPU, 18-core GPU" },
+  "Apple M2 Ultra": { vendor:"Apple", cat:"Apple Silicon", cpu:24, gpu:"M2U", vram:0, ramGB:192, diskMBs:20000, netGbps:10, tflops:27.2, membwGBs:800, tdpW:215, desc:"24-core CPU, 76-core GPU" },
+  "AWS c7i.48xlarge": { vendor:"AWS", cat:"Cloud/Compute", cpu:192, gpu:null, vram:0, ramGB:384, diskMBs:40000, netGbps:50, tflops:0, membwGBs:0, tdpW:0, desc:"Intel Xeon Sapphire Rapids — CPU-optimised" },
+  "AWS c7i.24xlarge": { vendor:"AWS", cat:"Cloud/Compute", cpu:96, gpu:null, vram:0, ramGB:192, diskMBs:20000, netGbps:37.5, tflops:0, membwGBs:0, tdpW:0, costPerHr:4.08, desc:"96 vCPU compute-optimised instance" },
+  "AWS c6i.4xlarge": { vendor:"AWS", cat:"Cloud/Compute", cpu:16, gpu:null, vram:0, ramGB:32, diskMBs:3200, netGbps:12.5, tflops:0, membwGBs:0, tdpW:0, costPerHr:0.68, desc:"Entry-level compute-optimised, Ice Lake" },
+  "AWS m7i.16xlarge": { vendor:"AWS", cat:"Cloud/Compute", cpu:64, gpu:null, vram:0, ramGB:256, diskMBs:10000, netGbps:25, tflops:0, membwGBs:0, tdpW:0, desc:"General-purpose Sapphire Rapids" },
+  "AWS r7g.16xlarge": { vendor:"AWS", cat:"Cloud/Memory", cpu:64, gpu:null, vram:0, ramGB:512, diskMBs:12500, netGbps:25, tflops:0, membwGBs:0, tdpW:0, desc:"Memory-optimised Graviton3 — ideal for Redis" },
+  "AWS r7iz.32xlarge": { vendor:"AWS", cat:"Cloud/Memory", cpu:128, gpu:null, vram:0, ramGB:1024, diskMBs:25000, netGbps:50, tflops:0, membwGBs:0, tdpW:0, desc:"1TB RAM memory-optimised instance" },
+  "AWS p4d.24xlarge": { vendor:"AWS", cat:"Cloud/GPU", cpu:96, gpu:"A100×8", vram:320, ramGB:1152, diskMBs:8000, netGbps:400, tflops:2496, membwGBs:16000, tdpW:0, desc:"8× A100 GPU training instance" },
+  "AWS p5.48xlarge": { vendor:"AWS", cat:"Cloud/GPU", cpu:192, gpu:"H100×8", vram:640, ramGB:2048, diskMBs:30000, netGbps:3200, tflops:5600, membwGBs:26800, tdpW:0, desc:"8× H100 — fastest AWS training cluster" },
+  "AWS db.r8g.16xlarge (RDS)": { vendor:"AWS", cat:"Cloud/Database", cpu:64, gpu:null, vram:0, ramGB:512, diskMBs:256000, netGbps:25, tflops:0, membwGBs:0, tdpW:0, costPerHr:9.60, desc:"RDS Graviton4 — memory-optimised DB host" },
+  "AWS cache.r7g.4xlarge (ElastiCache)": { vendor:"AWS", cat:"Cloud/Cache", cpu:16, gpu:null, vram:0, ramGB:105, diskMBs:10000, netGbps:12.5, tflops:0, membwGBs:0, tdpW:0, desc:"ElastiCache Graviton3 — Redis/Memcached" },
+  "GCP c3-highcpu-176": { vendor:"GCP", cat:"Cloud/Compute", cpu:176, gpu:null, vram:0, ramGB:352, diskMBs:20000, netGbps:100, tflops:0, membwGBs:0, tdpW:0, desc:"Sapphire Rapids CPU-optimised — GCP" },
+  "GCP n4-standard-64": { vendor:"GCP", cat:"Cloud/Compute", cpu:64, gpu:null, vram:0, ramGB:256, diskMBs:10000, netGbps:50, tflops:0, membwGBs:0, tdpW:0, desc:"General-purpose GCP instance" },
+  "GCP a3-highgpu-8g": { vendor:"GCP", cat:"Cloud/GPU", cpu:208, gpu:"H100×8", vram:640, ramGB:1872, diskMBs:12000, netGbps:200, tflops:5600, membwGBs:26800, tdpW:0, desc:"GCP's flagship training node — 8× H100" },
+  "Azure Standard_HX176rs": { vendor:"Azure", cat:"Cloud/Compute", cpu:176, gpu:null, vram:0, ramGB:1408, diskMBs:50000, netGbps:800, tflops:0, membwGBs:0, tdpW:0, desc:"HPC — AMD EPYC Genoa, InfiniBand" },
+  "Azure Standard_ND96amsr_A100_v4": { vendor:"Azure", cat:"Cloud/GPU", cpu:96, gpu:"A100×8", vram:320, ramGB:1900, diskMBs:8000, netGbps:800, tflops:2496, membwGBs:16000, tdpW:0, desc:"8× A100 80GB NVLink cluster" },
+  "AMD EPYC 9654 (2-socket)": { vendor:"AMD", cat:"Bare Metal", cpu:192, gpu:null, vram:0, ramGB:1536, diskMBs:12000, netGbps:200, tflops:0, membwGBs:922, tdpW:720, desc:"Dual-socket Genoa — 192 cores, massive NPS" },
+  "Intel Xeon w9-3595X": { vendor:"Intel", cat:"Bare Metal", cpu:60, gpu:null, vram:0, ramGB:512, diskMBs:7000, netGbps:100, tflops:0, membwGBs:230, tdpW:500, desc:"Sapphire Rapids Xeon W — workstation/server" },
+  "Ampere Altra Q80-30": { vendor:"Ampere", cat:"Bare Metal", cpu:80, gpu:null, vram:0, ramGB:512, diskMBs:8000, netGbps:100, tflops:0, membwGBs:200, tdpW:210, desc:"ARM64 cloud-native server — 80 cores" },
+  "AWS ALB (Application LB)": { vendor:"AWS", cat:"Networking", cpu:0, gpu:null, vram:0, ramGB:0, diskMBs:0, netGbps:1000, tflops:0, membwGBs:0, tdpW:0, costPerHr:0.18, desc:"Managed ALB — 1M RPS, auto-scales" },
+  "NGINX (4 vCPU)": { vendor:"OSS", cat:"Networking", cpu:4, gpu:null, vram:0, ramGB:8, diskMBs:1000, netGbps:10, tflops:0, membwGBs:0, tdpW:0, desc:"NGINX reverse proxy / LB on 4 cores" },
+  "HAProxy (16 vCPU)": { vendor:"OSS", cat:"Networking", cpu:16, gpu:null, vram:0, ramGB:32, diskMBs:2000, netGbps:25, tflops:0, membwGBs:0, tdpW:0, desc:"HAProxy load balancer on 16 cores" },
+  "Cloudflare CDN Edge": { vendor:"Cloudflare", cat:"Networking", cpu:0, gpu:null, vram:0, ramGB:0, diskMBs:0, netGbps:5000, tflops:0, membwGBs:0, tdpW:0, desc:"Global CDN — 5Tbps, 300+ PoPs" },
+  "PostgreSQL (c7i.8xlarge)": { vendor:"AWS", cat:"Database", cpu:32, gpu:null, vram:0, ramGB:64, diskMBs:25000, netGbps:12.5, tflops:0, membwGBs:0, tdpW:0, desc:"Postgres on compute-optimised EC2" },
+  "MongoDB Atlas M80": { vendor:"MongoDB", cat:"Database", cpu:32, gpu:null, vram:0, ramGB:240, diskMBs:5000, netGbps:10, tflops:0, membwGBs:0, tdpW:0, desc:"MongoDB Atlas M80 — 32 vCPU, 240GB RAM" },
+  "Redis Enterprise (r7g.4xlarge)": { vendor:"Redis", cat:"Database", cpu:16, gpu:null, vram:0, ramGB:128, diskMBs:10000, netGbps:12.5, tflops:0, membwGBs:0, tdpW:0, costPerHr:1.008, desc:"Redis Enterprise on Graviton3" },
+  "Kafka (3-node, m5.4xlarge)": { vendor:"Apache", cat:"Database", cpu:48, gpu:null, vram:0, ramGB:192, diskMBs:15000, netGbps:30, tflops:0, membwGBs:0, tdpW:0, desc:"3-broker Kafka cluster" },
+};
+
+function derivePerf(hw) {
+  if (!hw) return { tput: 1, conn: 64, latMs: 5, membw: '—' };
+  const cpuTput = (hw.cpu || 1) * 400;
+  const netTput = hw.netGbps * 1000 / 0.04;
+  const gpuBoost = hw.tflops > 0 ? hw.tflops * 0.8 : 0;
+  const tput = Math.round(Math.min(cpuTput + gpuBoost, netTput));
+  const conn = hw.ramGB > 0 ? hw.ramGB * 50 : (hw.vram || 1) * 20;
+  const latMs = hw.diskMBs > 0 ? Math.max(0.5, 200 / (hw.diskMBs / 100)) : 1;
+  const membw = hw.membwGBs > 0 ? `${hw.membwGBs} GB/s` : '—';
+  return { tput, conn, latMs: latMs.toFixed(1), membw };
+}
+
+// ═══════════════════════════════════════════════════════════
+// NODE TYPE CONFIGS
+// ═══════════════════════════════════════════════════════════
+const NODE_CFG = {
+  lb:      { name:'Load Balancer', col:0x3b82f6, shape:'disc',   desc:'Distributes traffic across downstream nodes', allowAll:true,  defaultModel:'AWS ALB (Application LB)' },
+  fw:      { name:'Firewall',      col:0xa855f7, shape:'prism',  desc:'WAF — blocks MALICIOUS traffic',              allowAll:true,  defaultModel:'NGINX (4 vCPU)' },
+  apigw:   { name:'API Gateway',   col:0xe879f9, shape:'oct',    desc:'Rate-limiting & request routing',             allowAll:true,  defaultModel:'NGINX (4 vCPU)' },
+  queue:   { name:'Queue',         col:0xf97316, shape:'flat',   desc:'Async message buffer (Kafka/SQS)',            allowAll:true,  defaultModel:'Kafka (3-node, m5.4xlarge)' },
+  server:  { name:'Server',        col:0xf97316, shape:'cyl',    desc:'General-purpose compute node',               allowAll:true,  defaultModel:'AWS c6i.4xlarge' },
+  k8s:     { name:'K8s Pod',       col:0x326de6, shape:'hex',    desc:'Kubernetes containerised workload',          allowAll:true,  defaultModel:'AWS c7i.24xlarge' },
+  db:      { name:'SQL DB',        col:0xdc2626, shape:'dbcyl',  desc:'Relational database — PostgreSQL / MySQL',   allowAll:false, defaultModel:'PostgreSQL (c7i.8xlarge)' },
+  nosql:   { name:'NoSQL',         col:0x7c3aed, shape:'dbcyl',  desc:'Document / key-value store',                allowAll:false, defaultModel:'MongoDB Atlas M80' },
+  cache:   { name:'Cache',         col:0xdc382d, shape:'box',    desc:'In-memory cache — Redis / Memcached',        allowAll:false, defaultModel:'Redis Enterprise (r7g.4xlarge)' },
+  cdn:     { name:'CDN',           col:0x4ade80, shape:'sph',    desc:'Edge content delivery network',             allowAll:true,  defaultModel:'Cloudflare CDN Edge' },
+  storage: { name:'Storage',       col:0x10b981, shape:'flat',   desc:'Object/blob storage (S3 / GCS)',             allowAll:false, defaultModel:'AWS cache.r7g.4xlarge (ElastiCache)' },
+  internet:{ name:'Internet',      col:0x22d3ee, shape:'sph',    desc:'External traffic ingress', allowAll:true,    defaultModel:null },
+};
+
+const TRAFFIC_COLS = { READ:0x3b82f6, WRITE:0xf97316, SEARCH:0x06b6d4, STATIC:0x4ade80, UPLOAD:0xfbbf24, MALICIOUS:0xef4444 };
+const TRAFFIC_TYPES = ['READ','WRITE','SEARCH','STATIC','UPLOAD','MALICIOUS'];
+const TT_CSS = { READ:'#3b82f6', WRITE:'#f97316', SEARCH:'#06b6d4', STATIC:'#4ade80', UPLOAD:'#fbbf24', MALICIOUS:'#ef4444' };
+
+// ═══════════════════════════════════════════════════════════
+// NEW CODE: GLOBAL DATA STATE & REPLICATION ENGINE
+// ═══════════════════════════════════════════════════════════
+
+// Simple key-value data store shared across DB nodes
+let dataStore = { value: 0 };
+
+// Replication state: tracks primary and per-node replica values
+const replicationState = {
+  primaryValue: 0,       // Ground truth on the primary DB
+  primaryNodeId: null,   // ID of whichever DB node is "primary"
+  replicas: {},          // { nodeId: { value, lagMs, lastSyncAt } }
+  repLagBase: 800,       // Base replication delay in ms (real-time)
+  repLagJitter: 400,     // ± jitter on top of base
+};
+
+// Data statistics counters
+const dataStats = {
+  writes: 0,
+  cacheHits: 0,
+  cacheMisses: 0,
+  staleReads: 0,
+  totalReads: 0,
+  pendingReplications: 0,
+};
+
+// Cache node state: nodeId -> { value, valid, lastUpdate }
+const cacheState = {};
+
+/**
+ * WRITE FLOW:
+ * 1. Increment dataStore.value (global truth)
+ * 2. Update primary DB immediately
+ * 3. Schedule async replication to all replica DB nodes with delay
+ */
+function handleWrite(nodeId) {
+  dataStore.value++;
+  dataStats.writes++;
+  replicationState.primaryValue = dataStore.value;
+  replicationState.primaryNodeId = replicationState.primaryNodeId || nodeId;
+
+  // Write-through: invalidate all cache entries
+  Object.keys(cacheState).forEach(cid => {
+    if (cacheState[cid]) cacheState[cid].valid = false;
+  });
+
+  // Mark replicas as lagging
+  SIM.nodes.filter(n => (n.type === 'db' || n.type === 'nosql') && n.id !== nodeId)
+    .forEach(n => {
+      if (!replicationState.replicas[n.id]) {
+        replicationState.replicas[n.id] = { value: 0, lagMs: 0, lastSyncAt: 0 };
+      }
+      const lagMs = replicationState.repLagBase + (Math.random() * replicationState.repLagJitter * 2 - replicationState.repLagJitter);
+      replicationState.replicas[n.id].lagMs = lagMs;
+      dataStats.pendingReplications++;
+
+      // Async replication with realistic delay
+      setTimeout(() => {
+        dataStats.pendingReplications = Math.max(0, dataStats.pendingReplications - 1);
+        if (SIM.failed.has(n.id)) {
+          // Replica is down — will need re-sync on recovery
+          logEvent('w', `Replication skipped — ${n.name} is down`);
+          return;
+        }
+        const prevVal = replicationState.replicas[n.id].value;
+        replicationState.replicas[n.id].value = replicationState.primaryValue;
+        replicationState.replicas[n.id].lagMs = 0;
+        replicationState.replicas[n.id].lastSyncAt = SIM.elapsed;
+        if (prevVal !== replicationState.primaryValue) {
+          logEvent('s', `Replica synced: ${n.name} → value=${replicationState.primaryValue}`);
+        }
+      }, lagMs / Math.max(1, SIM.speed));
+    });
+
+  return dataStore.value;
+}
+
+/**
+ * READ FLOW:
+ * 1. Check if any cache node is in request path (cache lookup)
+ * 2. Cache HIT → return cached value immediately (fast path)
+ * 3. Cache MISS → route to DB node
+ *    a. If DB is a replica: may return stale value (eventual consistency)
+ *    b. If DB is primary: always returns current value
+ *    c. After DB read, populate cache (write-back)
+ */
+function handleRead(req, nodeId) {
+  dataStats.totalReads++;
+  const node = getNode(nodeId);
+  if (!node) return { value: dataStore.value, source: 'unknown', stale: false };
+
+  // CACHE NODE: serve from cache state
+  if (node.type === 'cache') {
+    const cs = cacheState[nodeId];
+    if (cs && cs.valid) {
+      dataStats.cacheHits++;
+      logEvent('s', `Cache HIT: ${node.name} → val=${cs.value}`);
+      return { value: cs.value, source: 'cache-hit', stale: false };
+    } else {
+      dataStats.cacheMisses++;
+      logEvent('i', `Cache MISS: ${node.name} — forwarding to DB`);
+      return { value: null, source: 'cache-miss', stale: false };
+    }
+  }
+
+  // DB NODE: check if primary or replica
+  if (node.type === 'db' || node.type === 'nosql') {
+    const isPrimary = replicationState.primaryNodeId === nodeId || replicationState.primaryNodeId === null;
+    if (isPrimary) {
+      const val = replicationState.primaryValue;
+      // Populate any cache nodes downstream after read
+      scheduleWriteBackToCache(val, nodeId);
+      return { value: val, source: 'primary-db', stale: false };
+    } else {
+      // Replica: may be stale
+      const rep = replicationState.replicas[nodeId];
+      const replicaVal = rep ? rep.value : 0;
+      const isStale = replicaVal !== replicationState.primaryValue;
+      if (isStale) {
+        dataStats.staleReads++;
+        logEvent('w', `Stale READ: ${node.name} → val=${replicaVal} (primary=${replicationState.primaryValue})`);
+      }
+      return { value: replicaVal, source: 'replica-db', stale: isStale };
+    }
+  }
+
+  return { value: dataStore.value, source: 'passthrough', stale: false };
+}
+
+/**
+ * After a DB read, write value back to connected cache nodes (write-back caching).
+ */
+function scheduleWriteBackToCache(value, dbNodeId) {
+  const cacheNodes = SIM.conns
+    .filter(c => c.to === dbNodeId)
+    .map(c => getNode(c.from))
+    .filter(n => n && n.type === 'cache' && !SIM.failed.has(n.id));
+
+  cacheNodes.forEach(cn => {
+    const writeBackDelay = 50 + Math.random() * 100;
+    setTimeout(() => {
+      cacheState[cn.id] = { value, valid: true, lastUpdate: SIM.elapsed };
+    }, writeBackDelay / Math.max(1, SIM.speed));
+  });
+}
+
+/**
+ * Find the first cache node connected upstream of a DB in a request's path.
+ * Returns node or null.
+ */
+function findCacheInPath(req) {
+  for (let i = req.path.length - 1; i >= 0; i--) {
+    const n = getNode(req.path[i]);
+    if (n && n.type === 'cache') return n;
+  }
+  return null;
+}
+
+/**
+ * When a READ arrives at a DB node, first check if there's a cache
+ * node already visited in the path. If cache was missed, record write-back.
+ */
+function processReadAtDB(req, dbNode) {
+  const result = handleRead(req, dbNode.id);
+  // Attach result to request for logging purposes
+  req._readResult = result;
+
+  // Write-back to cache node if there was a miss earlier
+  const cacheNode = findCacheInPath(req);
+  if (cacheNode && result.source !== 'cache-hit') {
+    const delay = 80 + Math.random() * 120;
+    setTimeout(() => {
+      if (!SIM.failed.has(cacheNode.id)) {
+        cacheState[cacheNode.id] = { value: result.value, valid: true, lastUpdate: SIM.elapsed };
+        logEvent('s', `Write-back → ${cacheNode.name} val=${result.value}`);
+      }
+    }, delay / Math.max(1, SIM.speed));
+  }
+}
+
+// END NEW CODE: DATA STATE & REPLICATION ENGINE
+// ═══════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// SIM STATE
+// ═══════════════════════════════════════════════════════════
+let nc = 0, cc = 0;
+const SIM = {
+  nodes:[], conns:[], requests:[], reqObjs:[],
+  tool:'select', selId:null, connFrom:null,
+  speed:1, running:false, rps:2,
+  elapsed:0, lastT:0, spawnT:0,
+  totalProc:0, totalFail:0, p99:0, latencies:[],
+  partitions:new Set(), failed:new Set(),
+  typeStats: Object.fromEntries(TRAFFIC_TYPES.map(t=>[t,{proc:0,fail:0,lats:[]}])),
+  nCounters:{}, sparkData:[],
+  scene:null, cam:null, renderer:null, raycaster:null, mouse:null,
+  meshes:{}, lines:{},
+  orbitT:new THREE.Vector3(0,0,0), theta:Math.PI*.3, phi:Math.PI*.22, radius:58,
+  isDragCam:false, isDragNode:false, dragNodeId:null, mdownPos:null, mBtn:0,
+  hwCat:'All',
+  overloadTimer:{},
+  autoCrashed:new Set(),
+};
+
+const OVERLOAD_CFG = {
+  lb:      { threshold:92, sustainSec:4,  recoverSec:12, label:'LB saturated'         },
+  fw:      { threshold:96, sustainSec:8,  recoverSec:20, label:'WAF overloaded'        },
+  apigw:   { threshold:90, sustainSec:5,  recoverSec:14, label:'API GW rate-limited'   },
+  queue:   { threshold:99, sustainSec:15, recoverSec:10, label:'Queue full — backlog'  },
+  server:  { threshold:88, sustainSec:5,  recoverSec:15, label:'Server OOM'            },
+  k8s:     { threshold:85, sustainSec:4,  recoverSec:18, label:'Pod OOMKilled'         },
+  db:      { threshold:82, sustainSec:6,  recoverSec:25, label:'DB connections maxed'  },
+  nosql:   { threshold:85, sustainSec:5,  recoverSec:20, label:'NoSQL write stall'     },
+  cache:   { threshold:90, sustainSec:4,  recoverSec:10, label:'Cache eviction storm'  },
+  cdn:     { threshold:98, sustainSec:12, recoverSec:8,  label:'CDN edge overload'     },
+  storage: { threshold:88, sustainSec:7,  recoverSec:20, label:'Storage IOPS maxed'    },
+  internet:{ threshold:999,sustainSec:999,recoverSec:0,  label:''                      },
+};
+
+// ═══════════════════════════════════════════════════════════
+// THREE INIT
+// ═══════════════════════════════════════════════════════════
+function initThree(){
+  const cont = document.getElementById('canvas-container');
+  SIM.scene = new THREE.Scene();
+  SIM.scene.background = new THREE.Color(0x020408);
+  SIM.scene.fog = new THREE.FogExp2(0x020408, 0.01);
+
+  SIM.cam = new THREE.PerspectiveCamera(52, innerWidth/innerHeight, 0.1, 600);
+  updateCam();
+
+  SIM.renderer = new THREE.WebGLRenderer({antialias:true});
+  SIM.renderer.setSize(innerWidth, innerHeight);
+  SIM.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  SIM.renderer.shadowMap.enabled = true;
+  cont.appendChild(SIM.renderer.domElement);
+
+  SIM.scene.add(new THREE.AmbientLight(0x0a1830, 1.2));
+  const dir = new THREE.DirectionalLight(0x6699ff, 1.4);
+  dir.position.set(40,60,30); dir.castShadow = true; SIM.scene.add(dir);
+  const rim = new THREE.PointLight(0x00b4ff, 0.8, 120);
+  rim.position.set(0,25,0); SIM.scene.add(rim);
+
+  const gnd = new THREE.Mesh(
+    new THREE.PlaneGeometry(240,240),
+    new THREE.MeshStandardMaterial({color:0x010306, roughness:1})
+  );
+  gnd.rotation.x=-Math.PI/2; gnd.receiveShadow=true; SIM.scene.add(gnd);
+
+  const grd = new THREE.Mesh(
+    new THREE.PlaneGeometry(240,240,48,48),
+    new THREE.MeshBasicMaterial({color:0x071424, wireframe:true, transparent:true, opacity:0.18})
+  );
+  grd.rotation.x=-Math.PI/2; grd.position.y=0.02; SIM.scene.add(grd);
+
+  SIM.raycaster = new THREE.Raycaster();
+  SIM.mouse = new THREE.Vector2();
+
+  window.addEventListener('resize',()=>{
+    SIM.cam.aspect=innerWidth/innerHeight;
+    SIM.cam.updateProjectionMatrix();
+    SIM.renderer.setSize(innerWidth,innerHeight);
+  });
+
+  const el = SIM.renderer.domElement;
+  el.addEventListener('mousedown', onMD);
+  el.addEventListener('mousemove', onMM);
+  el.addEventListener('mouseup', onMU);
+  el.addEventListener('wheel', onWheel);
+  el.addEventListener('contextmenu', e=>e.preventDefault());
+}
+
+function buildMesh(type, pos){
+  const cfg = NODE_CFG[type];
+  let geo;
+  switch(cfg.shape){
+    case 'disc':  geo=new THREE.CylinderGeometry(2.6,2.6,.8,32); break;
+    case 'prism': geo=new THREE.CylinderGeometry(0,2.4,4,6); break;
+    case 'oct':   geo=new THREE.OctahedronGeometry(2.2,0); break;
+    case 'flat':  geo=new THREE.BoxGeometry(6,0.9,3.2); break;
+    case 'cyl':   geo=new THREE.CylinderGeometry(2,2,3,20); break;
+    case 'hex':   geo=new THREE.CylinderGeometry(2.4,2.4,2.6,6); break;
+    case 'dbcyl': geo=new THREE.CylinderGeometry(2.4,2.4,1.6,24); break;
+    case 'box':   geo=new THREE.BoxGeometry(4,2,4); break;
+    case 'sph':   geo=new THREE.SphereGeometry(2.2,24,24); break;
+    default:      geo=new THREE.BoxGeometry(3.5,3,3.5);
+  }
+  const mat = new THREE.MeshStandardMaterial({
+    color:cfg.col, roughness:.2, metalness:.55,
+    emissive:cfg.col, emissiveIntensity:.12,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(pos.x, 1.8, pos.z||0);
+  mesh.castShadow = true;
+
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(3.2,3.5,32),
+    new THREE.MeshBasicMaterial({color:0x003344, side:THREE.DoubleSide, transparent:true, opacity:.5})
+  );
+  ring.rotation.x=-Math.PI/2; ring.position.y=-1.6;
+  ring.userData.isLoadRing=true;
+  mesh.add(ring);
+
+  const dot = new THREE.Mesh(
+    new THREE.SphereGeometry(.35,8,8),
+    new THREE.MeshBasicMaterial({color:0x00e87a})
+  );
+  dot.position.y=2.2; dot.userData.isStatusDot=true;
+  mesh.add(dot);
+
+  return mesh;
+}
+
+function createNode(type, pos){
+  nc++;
+  const id = `n_${type}_${nc}`;
+  const cfg = NODE_CFG[type];
+  const modelKey = cfg.defaultModel;
+  const hwModel = modelKey ? HW_DB[modelKey] : null;
+
+  const node = {
+    id, type,
+    name: `${cfg.name} ${nc}`,
+    position: new THREE.Vector3(pos.x||0, 0, pos.z||0),
+    modelKey,
+    hw: hwModel,
+    allowedTraffic: [...TRAFFIC_TYPES].filter(t=> cfg.allowAll || t!=='MALICIOUS' || type==='fw'),
+    lbStrategy:'round-robin',
+    connections:[], rrIdx:0, health:100,
+  };
+  if(type==='db'||type==='nosql') node.allowedTraffic=['READ','WRITE','SEARCH'];
+  if(type==='cache') node.allowedTraffic=['READ','STATIC'];
+  if(type==='storage') node.allowedTraffic=['STATIC','UPLOAD'];
+  if(type==='cdn') node.allowedTraffic=['STATIC','READ'];
+
+  SIM.nodes.push(node);
+  SIM.nCounters[id]={proc:0,fail:0,q:0,load:0,err:0};
+
+  // NEW CODE: initialize replica tracking for new DB nodes
+  if (type === 'db' || type === 'nosql') {
+    if (!replicationState.primaryNodeId) {
+      replicationState.primaryNodeId = id; // First DB placed is primary
+      logEvent('i', `Primary DB assigned: ${node.name}`);
+    } else {
+      replicationState.replicas[id] = {
+        value: replicationState.primaryValue,
+        lagMs: 0,
+        lastSyncAt: SIM.elapsed
+      };
+      logEvent('i', `Replica DB registered: ${node.name}`);
+    }
+  }
+  // Initialize cache state for cache nodes
+  if (type === 'cache') {
+    cacheState[id] = { value: 0, valid: false, lastUpdate: 0 };
+  }
+  // END NEW CODE
+
+  const mesh = buildMesh(type, node.position);
+  mesh.userData.nodeId = id;
+  SIM.scene.add(mesh);
+  SIM.meshes[id] = mesh;
+
+  return node;
+}
+
+function createInternetNode(){
+  const geo = new THREE.SphereGeometry(2.8,28,28);
+  const mat = new THREE.MeshStandardMaterial({
+    color:0x22d3ee, roughness:.05, metalness:.8,
+    emissive:0x22d3ee, emissiveIntensity:.45, wireframe:false
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(-30, 2.8, 0);
+  mesh.userData.nodeId='internet';
+  SIM.scene.add(mesh);
+  SIM.meshes['internet']=mesh;
+
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(3.8,4.1,40),
+    new THREE.MeshBasicMaterial({color:0x22d3ee, side:THREE.DoubleSide, transparent:true, opacity:.4})
+  );
+  ring.rotation.x=-Math.PI/2; ring.position.y=-2.6;
+  mesh.add(ring);
+
+  SIM.nodes.push({
+    id:'internet', type:'internet', name:'Internet',
+    position:new THREE.Vector3(-30,0,0),
+    hw:null, modelKey:null,
+    allowedTraffic:[...TRAFFIC_TYPES],
+    lbStrategy:'random', connections:[], rrIdx:0, health:100
+  });
+  SIM.nCounters['internet']={proc:0,fail:0,q:0,load:0,err:0};
+}
+
+function createConn(fromId, toId){
+  if(fromId===toId) return null;
+  if(SIM.conns.find(c=>c.from===fromId&&c.to===toId)) return null;
+  cc++;
+  const id=`c_${cc}`;
+  const conn={id, from:fromId, to:toId, partitioned:false,
+    allowedTraffic:[...TRAFFIC_TYPES], weight:1};
+  SIM.conns.push(conn);
+  const fn=getNode(fromId);
+  if(fn) fn.connections.push(id);
+  buildLine(conn);
+  return conn;
+}
+
+function buildLine(conn){
+  const fn=getNode(conn.from), tn=getNode(conn.to);
+  if(!fn||!tn) return;
+  const pts=[
+    new THREE.Vector3(fn.position.x, 1.8, fn.position.z||0),
+    new THREE.Vector3(tn.position.x, 1.8, tn.position.z||0)
+  ];
+  const geo=new THREE.BufferGeometry().setFromPoints(pts);
+  const mat=new THREE.LineBasicMaterial({color:0x00ffc8, transparent:true, opacity:.45});
+  const line=new THREE.Line(geo,mat);
+  SIM.scene.add(line);
+  if(SIM.lines[conn.id]) SIM.scene.remove(SIM.lines[conn.id]);
+  SIM.lines[conn.id]=line;
+}
+
+function removeConn(connId){
+  if(SIM.lines[connId]){SIM.scene.remove(SIM.lines[connId]);delete SIM.lines[connId];}
+  SIM.conns=SIM.conns.filter(c=>c.id!==connId);
+  SIM.nodes.forEach(n=>{n.connections=n.connections.filter(x=>x!==connId);});
+}
+
+// ═══════════════════════════════════════════════════════════
+// MODIFIED CODE: REQUEST SIMULATION — READ/WRITE AWARE
+// ═══════════════════════════════════════════════════════════
+function getNode(id){return SIM.nodes.find(n=>n.id===id)}
+
+function getOutConns(nodeId, reqType){
+  return SIM.conns.filter(c=>
+    c.from===nodeId && !c.partitioned &&
+    !SIM.failed.has(c.to) &&
+    c.allowedTraffic.includes(reqType)
+  );
+}
+
+function nextNode(from, req){
+  // MODIFIED CODE: For READ requests hitting a cache node, prefer DB connections only on cache-miss
+  if (req.type === 'READ' && from.type === 'cache') {
+    const cs = cacheState[from.id];
+    if (cs && cs.valid) {
+      // Cache HIT: terminate here, no need to forward to DB
+      return null;
+    }
+    // Cache MISS: fall through to normal routing toward DB
+  }
+
+  const valid=getOutConns(from.id, req.type);
+  if(!valid.length) return null;
+  switch(from.lbStrategy){
+    case 'round-robin': {const c=valid[from.rrIdx%valid.length];from.rrIdx++;return c;}
+    case 'least-conn': return valid.reduce((b,c)=>{
+      const q=SIM.nCounters[c.to]?.q||0;
+      return q<(SIM.nCounters[b.to]?.q||0)?c:b;
+    });
+    case 'weighted':{
+      let r=Math.random()*valid.reduce((s,c)=>s+c.weight,0);
+      for(const c of valid){r-=c.weight;if(r<=0)return c;}
+      return valid[valid.length-1];
+    }
+    default: return valid[Math.floor(Math.random()*valid.length)];
+  }
+}
+
+function spawnReq(type){
+  const inet=getNode('internet'); if(!inet) return;
+  const req={id:`r_${Date.now()}_${Math.random()}`, type, path:['internet'],
+    start:SIM.elapsed, lat:0, hops:0, done:false,
+    _readResult:null  // NEW CODE: will hold read result when applicable
+  };
+  const conn=nextNode(inet, req);
+  if(!conn){SIM.totalFail++;SIM.typeStats[type].fail++;return;}
+  const tn=getNode(conn.to); if(!tn) return;
+  SIM.requests.push(req);
+  animReq(req, inet, tn, conn);
+}
+
+// MODIFIED CODE: processAtNode now handles READ/WRITE data flow
+function processAtNode(req, node){
+  if(!node||req.done) return;
+  req.path.push(node.id); req.hops++;
+  const ctr=SIM.nCounters[node.id]; if(!ctr) return;
+
+  // Firewall blocks malicious
+  if(node.type==='fw'&&req.type==='MALICIOUS'){
+    finalReq(req, true, node);
+    logEvent('i',`🛡 Blocked MALICIOUS at ${node.name}`);
+    return;
+  }
+  if(req.type==='MALICIOUS'){
+    const fwInPath=req.path.some(id=>{const n=getNode(id);return n&&n.type==='fw';});
+    if(!fwInPath){
+      ctr.load=Math.min(100,ctr.load+25);
+      SIM.ddosHits=(SIM.ddosHits||0)+1;
+      if(SIM.ddosHits%5===0){
+        toast(`🚨 UNMITIGATED DDoS — ${node.name} under attack!`,'danger',3000);
+        logEvent('d',`DDoS hitting ${node.name} unmitigated — no firewall in path`);
+      }
+      finalReq(req,false,node);
+      return;
+    }
+  }
+
+  // NEW CODE: Handle WRITE at DB/NoSQL nodes
+  if (req.type === 'WRITE' && (node.type === 'db' || node.type === 'nosql')) {
+    const newVal = handleWrite(node.id);
+    logEvent('s', `WRITE committed: ${node.name} → value=${newVal} (replicas pending: ${dataStats.pendingReplications})`);
+    finalReq(req, true, node);
+    return;
+  }
+
+  // NEW CODE: Handle READ at Cache nodes — check for cache hit/miss
+  if (req.type === 'READ' && node.type === 'cache') {
+    const cs = cacheState[node.id];
+    if (cs && cs.valid) {
+      // Cache HIT — serve immediately, don't forward to DB
+      dataStats.cacheHits++;
+      dataStats.totalReads++;
+      logEvent('s', `Cache HIT: ${node.name} → val=${cs.value}`);
+      req._readResult = { value: cs.value, source: 'cache-hit', stale: false };
+      finalReq(req, true, node);
+      return;
+    } else {
+      // Cache MISS — fall through to forward to DB
+      dataStats.cacheMisses++;
+      dataStats.totalReads++;
+      logEvent('i', `Cache MISS: ${node.name} — routing to DB`);
+      // Continue normal routing (will forward to DB below)
+    }
+  }
+
+  // NEW CODE: Handle READ at DB nodes — check primary vs replica consistency
+  if (req.type === 'READ' && (node.type === 'db' || node.type === 'nosql')) {
+    processReadAtDB(req, node);
+  }
+  // END NEW CODE
+
+  // Capacity check
+  const perf=derivePerf(node.hw);
+  if(ctr.q>100&&node.type!=='queue'){
+    finalReq(req,false,node);
+    flashMesh(node.id);
+    logEvent('w',`${node.name} dropping requests — queue overflow`);
+    return;
+  }
+  if(ctr.load>95&&node.type!=='queue'){
+    finalReq(req, false, node);
+    flashMesh(node.id);
+    return;
+  }
+
+  // Route onward
+  const conn=nextNode(node, req);
+  if(conn){
+    const tn=getNode(conn.to);
+    if(tn&&!SIM.failed.has(conn.to)){animReq(req,node,tn,conn);return;}
+  }
+  // Terminal
+  finalReq(req, !req.done, node);
+}
+
+function finalReq(req, ok, node){
+  req.done=true;
+  const idx=SIM.requests.indexOf(req);
+  if(idx>-1) SIM.requests.splice(idx,1);
+  if(ok){
+    SIM.totalProc++;
+    SIM.typeStats[req.type].proc++;
+    const lat=(SIM.elapsed-req.start)*1000;
+    req.lat=lat; SIM.latencies.push(lat);
+    SIM.typeStats[req.type].lats.push(lat);
+    if(SIM.latencies.length>300) SIM.latencies.shift();
+    if(node) SIM.nCounters[node.id].proc++;
+  } else {
+    SIM.totalFail++;
+    SIM.typeStats[req.type].fail++;
+    if(node) SIM.nCounters[node.id].fail++;
+  }
+}
+
+function triggerCascade(nodeId){
+  const dependents=SIM.conns
+    .filter(c=>c.to===nodeId)
+    .map(c=>getNode(c.from))
+    .filter(n=>n&&n.type!=='internet');
+  dependents.forEach(n=>{
+    const ctr=SIM.nCounters[n.id];
+    if(ctr){
+      ctr.load=Math.min(100,ctr.load+30);
+      logEvent('w',`${n.name} load spike — downstream ${getNode(nodeId)?.name} failed`);
+    }
+  });
+}
+
+function animReq(req, from, to, conn){
+  const geo=new THREE.SphereGeometry(.22,6,6);
+  const mat=new THREE.MeshBasicMaterial({color:TRAFFIC_COLS[req.type]||0xffffff, transparent:true, opacity:.92});
+  const mesh=new THREE.Mesh(geo,mat);
+  const fp=new THREE.Vector3(from.position.x, 2.2, from.position.z||0);
+  const tp=new THREE.Vector3(to.position.x, 2.2, to.position.z||0);
+  mesh.position.copy(fp);
+  SIM.scene.add(mesh);
+  const dist=fp.distanceTo(tp);
+  const travelT=Math.max(0.3, dist*0.025);
+  SIM.reqObjs.push({mesh,req,fp,tp,from,to,conn,prog:0,travelT,done:false});
+}
+
+// ═══════════════════════════════════════════════════════════
+// SIMULATION STEP
+// ═══════════════════════════════════════════════════════════
+function simStep(dt){
+  if(!SIM.running) return;
+  const sdt=dt*SIM.speed;
+  SIM.spawnT+=sdt;
+  while(SIM.spawnT>=1/SIM.rps){
+    SIM.spawnT-=1/SIM.rps;
+    spawnReq(weightedRand(SIM.trafficDist));
+  }
+  const done=[];
+  for(const ro of SIM.reqObjs){
+    ro.prog+=sdt/ro.travelT;
+    if(ro.prog>=1){
+      SIM.scene.remove(ro.mesh); done.push(ro);
+      processAtNode(ro.req, ro.to);
+    } else {
+      ro.mesh.position.lerpVectors(ro.fp,ro.tp,ro.prog);
+    }
+  }
+  SIM.reqObjs=SIM.reqObjs.filter(r=>!done.includes(r));
+
+  SIM.nodes.forEach(n=>{
+    const ctr=SIM.nCounters[n.id]; if(!ctr) return;
+    const inbound=SIM.reqObjs.filter(r=>r.to?.id===n.id).length;
+    const perf=derivePerf(n.hw);
+    const targetLoad=Math.min(100,(inbound/Math.max(1,perf.tput/60))*100);
+    ctr.load=ctr.load*0.85+targetLoad*0.15;
+    ctr.q=inbound;
+
+    if(n.type!=='internet' && !SIM.failed.has(n.id)){
+      const cfg=OVERLOAD_CFG[n.type];
+      if(cfg && ctr.load>=cfg.threshold){
+        SIM.overloadTimer[n.id]=(SIM.overloadTimer[n.id]||0)+sdt;
+        if(SIM.overloadTimer[n.id]>cfg.sustainSec*0.75 && SIM.overloadTimer[n.id]<cfg.sustainSec){
+          const mesh=SIM.meshes[n.id];
+          if(mesh) mesh.material.emissive.setHex(0xff6600);
+        }
+        if(SIM.overloadTimer[n.id]>=cfg.sustainSec){
+          SIM.overloadTimer[n.id]=0;
+          SIM.failed.add(n.id);
+          SIM.autoCrashed.add(n.id);
+          triggerCascade(n.id);
+          const mesh=SIM.meshes[n.id];
+          if(mesh){
+            mesh.material.color.setHex(0x200000);
+            mesh.material.emissive.setHex(0xff2200);
+            mesh.material.emissiveIntensity=0.8;
+          }
+          toast(`⚡ OVERLOAD CRASH: ${n.name} — ${cfg.label}`,'danger',5000);
+          logEvent('d',`AUTO-CRASH: ${n.name} [load: ${ctr.load.toFixed(0)}%] — ${cfg.label}`);
+
+          // NEW CODE: if primary DB crashes, promote a replica
+          if ((n.type === 'db' || n.type === 'nosql') && replicationState.primaryNodeId === n.id) {
+            const aliveReplica = SIM.nodes.find(rn =>
+              (rn.type === 'db' || rn.type === 'nosql') &&
+              rn.id !== n.id &&
+              !SIM.failed.has(rn.id)
+            );
+            if (aliveReplica) {
+              replicationState.primaryNodeId = aliveReplica.id;
+              // Sync replica to primary value
+              replicationState.replicas[aliveReplica.id] = { value: replicationState.primaryValue, lagMs: 0, lastSyncAt: SIM.elapsed };
+              toast(`📢 Primary DB failed! ${aliveReplica.name} promoted to PRIMARY`,'warn',5000);
+              logEvent('w', `FAILOVER: ${aliveReplica.name} promoted to primary DB`);
+            }
+          }
+          // END NEW CODE
+
+          const recoverMs=(cfg.recoverSec*1000)/Math.max(1,SIM.speed);
+          setTimeout(()=>{
+            if(!SIM.autoCrashed.has(n.id)) return;
+            SIM.failed.delete(n.id);
+            SIM.autoCrashed.delete(n.id);
+            const m=SIM.meshes[n.id];
+            if(m){const c=NODE_CFG[n.type];m.material.color.setHex(c.col);m.material.emissive.setHex(c.col);m.material.emissiveIntensity=.12;}
+            toast(`🔄 ${n.name} auto-recovered (load dropped)`,'success',2500);
+            logEvent('s',`AUTO-RECOVER: ${n.name}`);
+            // NEW CODE: on recovery, re-sync replica with current primary value
+            if ((n.type === 'db' || n.type === 'nosql') && replicationState.primaryNodeId !== n.id) {
+              setTimeout(() => {
+                replicationState.replicas[n.id] = { value: replicationState.primaryValue, lagMs: 0, lastSyncAt: SIM.elapsed };
+                logEvent('s', `Re-sync: ${n.name} caught up to primary val=${replicationState.primaryValue}`);
+              }, 2000 / Math.max(1, SIM.speed));
+            }
+          }, recoverMs);
+        }
+      } else {
+        if(SIM.overloadTimer[n.id]>0){
+          SIM.overloadTimer[n.id]=Math.max(0,(SIM.overloadTimer[n.id]||0)-sdt*0.5);
+          if(!SIM.failed.has(n.id)){
+            const mesh=SIM.meshes[n.id];
+            if(mesh) mesh.material.emissive.setHex(NODE_CFG[n.type]?.col||0x888888);
+          }
+        }
+      }
+    }
+
+    updateNodeVis(n,ctr);
+  });
+
+  SIM.conns.forEach(conn=>{
+    const line=SIM.lines[conn.id]; if(!line) return;
+    const active=SIM.reqObjs.some(r=>r.conn?.id===conn.id);
+    line.material.color.setHex(conn.partitioned?0xff6600:(active?0x00ffc8:0x00ff9d));
+    line.material.opacity=conn.partitioned?0.08:(active?0.95:0.3);
+  });
+
+  const im=SIM.meshes['internet'];
+  if(im) im.rotation.y+=.01*SIM.speed;
+
+  SIM.elapsed+=sdt;
+  const prevProc=SIM.sparkData._lastProc||0;
+  SIM.sparkData.push(SIM.totalProc - prevProc);
+  SIM.sparkData._lastProc=SIM.totalProc;
+  if(SIM.sparkData.length>80) SIM.sparkData.shift();
+  if(SIM.latencies.length>0){
+    const s=[...SIM.latencies].sort((a,b)=>a-b);
+    SIM.p99=s[Math.floor((s.length-1)*.99)]||0;
+  }
+}
+
+function updateNodeVis(node, ctr){
+  const mesh=SIM.meshes[node.id]; if(!mesh) return;
+  const ring=mesh.children.find(c=>c.userData.isLoadRing);
+  const dot=mesh.children.find(c=>c.userData.isStatusDot);
+  const overT=SIM.overloadTimer[node.id]||0;
+  const cfg=OVERLOAD_CFG[node.type];
+  const overPct=cfg&&cfg.sustainSec<900?Math.min(1,overT/cfg.sustainSec):0;
+
+  if(ring){
+    const l=ctr.load/100;
+    const col=new THREE.Color();
+    if(overPct>0.75) col.setHex(0xff2d55);
+    else if(overPct>0.4) col.setHex(0xff8800);
+    else col.setHSL((1-l)*0.32,1,.38);
+    ring.material.color=col;
+    ring.material.opacity=.2+l*.7+(overPct>0.4?0.25:0);
+    if(overPct>0.75){
+      const pulse=1+Math.sin(Date.now()*0.008)*0.18;
+      ring.scale.set(pulse,1,pulse);
+    } else {
+      ring.scale.set(1,1,1);
+    }
+  }
+
+  // NEW CODE: tint cache nodes cyan when they have a valid cache entry
+  if (node.type === 'cache' && !SIM.failed.has(node.id)) {
+    const cs = cacheState[node.id];
+    if (cs && cs.valid) {
+      mesh.material.emissive.setHex(0x00ffdd);
+      mesh.material.emissiveIntensity = 0.25;
+    }
+  }
+  // Tint primary DB with a subtle gold glow
+  if ((node.type === 'db' || node.type === 'nosql') && replicationState.primaryNodeId === node.id && !SIM.failed.has(node.id)) {
+    mesh.material.emissive.setHex(0xffd700);
+    mesh.material.emissiveIntensity = 0.18;
+  }
+  // END NEW CODE
+
+  if(dot){
+    const isFail=SIM.failed.has(node.id);
+    const isWarning=overPct>0.4&&!isFail;
+    dot.material.color.setHex(isFail?0xff2d55:(isWarning?0xff8800:(ctr.load>80?0xffaa00:0x00e87a)));
+  }
+  if(SIM.failed.has(node.id)){
+    mesh.material.color.setHex(0x1a0808);
+    mesh.material.emissiveIntensity=0;
+  } else if (!((node.type==='cache'&&cacheState[node.id]?.valid)||(node.type==='db'||node.type==='nosql'))) {
+    mesh.material.color.setHex(NODE_CFG[node.type]?.col||0x888888);
+    mesh.material.emissiveIntensity=.08+ctr.load*.003+(overPct>0.75?0.15:0);
+  }
+}
+
+function flashMesh(nodeId){
+  const mesh=SIM.meshes[nodeId]; if(!mesh) return;
+  const orig=mesh.material.emissive.getHex();
+  mesh.material.emissive.setHex(0xff0000);
+  setTimeout(()=>mesh.material.emissive.setHex(orig),150);
+}
+
+function weightedRand(dist){
+  const total=Object.values(dist).reduce((s,v)=>s+v,0);
+  let r=Math.random()*total;
+  for(const [k,v] of Object.entries(dist)){r-=v;if(r<=0)return k;}
+  return Object.keys(dist)[0];
+}
+
+SIM.trafficDist={READ:.25,WRITE:.2,SEARCH:.15,STATIC:.2,UPLOAD:.1,MALICIOUS:.1};
+
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min((ts-SIM.lastT)/1000,.1);
+  SIM.lastT=ts;
+  simStep(dt);
+  updateUI();
+  drawMinimap();
+  SIM.renderer.render(SIM.scene, SIM.cam);
+}
+
+function updateCam(){
+  const x=SIM.radius*Math.sin(SIM.theta)*Math.cos(SIM.phi);
+  const y=SIM.radius*Math.sin(SIM.phi);
+  const z=SIM.radius*Math.cos(SIM.theta)*Math.cos(SIM.phi);
+  SIM.cam.position.set(SIM.orbitT.x+x,SIM.orbitT.y+y,SIM.orbitT.z+z);
+  SIM.cam.lookAt(SIM.orbitT);
+}
+
+function onMD(e){
+  SIM.mdownPos={x:e.clientX,y:e.clientY}; SIM.mBtn=e.button;
+  SIM.mouse.set((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
+  if(e.button===2){SIM.isDragCam=true;return;}
+  if(e.button===0){
+    SIM.raycaster.setFromCamera(SIM.mouse,SIM.cam);
+    const hits=SIM.raycaster.intersectObjects(Object.values(SIM.meshes),true);
+    if(hits.length){
+      let h=hits[0].object;
+      while(h.parent&&!h.userData.nodeId) h=h.parent;
+      const nid=h.userData.nodeId;
+      if(nid){
+        if(SIM.tool==='select'){selectNode(nid);SIM.isDragNode=true;SIM.dragNodeId=nid;}
+        else if(SIM.tool==='connect'){handleConnectClick(nid);}
+        else if(SIM.tool==='delete'){removeNode(nid);}
+        else if(SIM.tool==='unlink'){
+          const conns=SIM.conns.filter(c=>c.from===nid||c.to===nid);
+          if(conns.length){
+            removeConn(conns[0].id);
+            const remaining=conns.length-1;
+            toast(remaining>0?`Connection removed (${remaining} remaining)`:'Last connection removed','warn');
+          } else { toast('No connections on this node','warn'); }
+        }
+        return;
+      }
+    }
+    if(!['select','connect','delete','unlink'].includes(SIM.tool)){
+      const wp=worldPos(e.clientX,e.clientY);
+      if(wp){const n=createNode(SIM.tool,wp);if(n){toast(`Placed ${NODE_CFG[SIM.tool].name}`,'success',1200);selectNode(n.id);}}
+    } else { deselect(); SIM.isDragCam=true; }
+  }
+}
+
+function handleConnectClick(nid){
+  if(!SIM.connFrom){
+    SIM.connFrom=nid;
+    document.getElementById('conn-hint').style.display='block';
+    toast(`From: ${getNode(nid)?.name}`, 'info', 2000);
+  } else {
+    const c=createConn(SIM.connFrom, nid);
+    SIM.connFrom=null;
+    document.getElementById('conn-hint').style.display='none';
+    if(c) toast('Connection created ✓','success',1200);
+    else toast('Already connected or same node','warn',1500);
+  }
+}
+
+function onMM(e){
+  SIM.mouse.set((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
+  const dx=SIM.mdownPos?e.clientX-SIM.mdownPos.x:0;
+  const dy=SIM.mdownPos?e.clientY-SIM.mdownPos.y:0;
+
+  if(SIM.isDragNode&&SIM.dragNodeId&&(Math.abs(dx)>2||Math.abs(dy)>2)){
+    const wp=worldPos(e.clientX,e.clientY);
+    if(wp){
+      const n=getNode(SIM.dragNodeId);
+      if(n){
+        n.position.set(wp.x,0,wp.z);
+        const mesh=SIM.meshes[SIM.dragNodeId];
+        if(mesh) mesh.position.set(wp.x,1.8,wp.z);
+        SIM.conns.filter(c=>c.from===SIM.dragNodeId||c.to===SIM.dragNodeId).forEach(c=>buildLine(c));
+      }
+    }
+  } else if(SIM.isDragCam&&SIM.mdownPos){
+    if(SIM.mBtn===2){
+      const r=new THREE.Vector3(); const u=new THREE.Vector3(0,1,0);
+      SIM.cam.getWorldDirection(r); r.cross(u).normalize();
+      const pu=r.clone().cross(SIM.cam.getWorldDirection(new THREE.Vector3())).negate();
+      SIM.orbitT.addScaledVector(r,-dx*.04);
+      SIM.orbitT.addScaledVector(pu,-dy*.04);
+    } else {
+      SIM.theta-=dx*.007;
+      SIM.phi=Math.max(.08,Math.min(Math.PI/2-.05,SIM.phi-dy*.007));
+    }
+    SIM.mdownPos={x:e.clientX,y:e.clientY};
+    updateCam();
+  }
+
+  SIM.raycaster.setFromCamera(SIM.mouse,SIM.cam);
+  const hits=SIM.raycaster.intersectObjects(Object.values(SIM.meshes),true);
+  if(hits.length){
+    let h=hits[0].object;
+    while(h.parent&&!h.userData.nodeId) h=h.parent;
+    const nid=h.userData.nodeId;
+    if(nid){showTip(getNode(nid),e.clientX,e.clientY);return;}
+  }
+  hideTip();
+}
+
+function onMU(e){SIM.isDragCam=false;SIM.isDragNode=false;SIM.dragNodeId=null;SIM.mdownPos=null;}
+function onWheel(e){SIM.radius=Math.max(12,Math.min(130,SIM.radius+e.deltaY*.05));updateCam();}
+
+function worldPos(cx,cy){
+  const m=new THREE.Vector2((cx/innerWidth)*2-1,-(cy/innerHeight)*2+1);
+  const rc=new THREE.Raycaster(); rc.setFromCamera(m,SIM.cam);
+  const pl=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  const t=new THREE.Vector3(); rc.ray.intersectPlane(pl,t); return t;
+}
+
+function selectNode(id){
+  SIM.selId=id;
+  const n=getNode(id); if(!n) return;
+  const panel=document.getElementById('cfg');
+  panel.classList.add('open');
+  document.getElementById('cfg-title-text').textContent=n.name;
+  document.getElementById('cfg-name').value=n.name;
+  if(n.type!=='internet'){
+    document.getElementById('hw-section').style.display='';
+    document.getElementById('routing-section').style.display='';
+    document.getElementById('cfg-lb').value=n.lbStrategy;
+    renderModelList(n);
+    buildTTToggles(n);
+  } else {
+    document.getElementById('hw-section').style.display='none';
+    document.getElementById('routing-section').style.display='none';
+  }
+}
+
+function deselect(){
+  SIM.selId=null;
+  document.getElementById('cfg').classList.remove('open');
+}
+
+function updateNodeName(v){const n=getNode(SIM.selId);if(n){n.name=v;document.getElementById('cfg-title-text').textContent=v;}}
+function updateLB(v){const n=getNode(SIM.selId);if(n) n.lbStrategy=v;}
+
+let hwSearchTerm='';
+let hwCatFilter='All';
+const HW_CATS=['All',...new Set(Object.values(HW_DB).map(m=>m.cat))];
+
+function renderModelList(node){
+  const cats=document.getElementById('hw-cats');
+  cats.innerHTML=HW_CATS.map(c=>`<span class="ftab${hwCatFilter===c?' active':''}" onclick="setHWCat('${c}')">${c}</span>`).join('');
+  filterModels(document.getElementById('hw-search').value, node);
+}
+
+function setHWCat(cat){
+  hwCatFilter=cat;
+  const n=getNode(SIM.selId); if(n) renderModelList(n);
+}
+
+function filterModels(term, node){
+  hwSearchTerm=term||'';
+  const n=node||getNode(SIM.selId); if(!n) return;
+  const cats=document.getElementById('hw-cats');
+  cats.innerHTML=HW_CATS.map(c=>`<span class="ftab${hwCatFilter===c?' active':''}" onclick="setHWCat('${c}')">${c}</span>`).join('');
+
+  const list=document.getElementById('hw-model-list');
+  const q=hwSearchTerm.toLowerCase();
+  const entries=Object.entries(HW_DB).filter(([k,v])=>{
+    const matchCat=hwCatFilter==='All'||v.cat===hwCatFilter;
+    const matchQ=!q||(k.toLowerCase().includes(q)||v.vendor.toLowerCase().includes(q)||v.desc.toLowerCase().includes(q));
+    return matchCat&&matchQ;
+  });
+  if(!entries.length){list.innerHTML='<div style="font-size:10px;color:var(--text3);padding:8px 0">No models match</div>';return;}
+
+  const bycat={};
+  entries.forEach(([k,v])=>{if(!bycat[v.cat])bycat[v.cat]=[];bycat[v.cat].push([k,v]);});
+  list.innerHTML=Object.entries(bycat).map(([cat,items])=>`
+    <div class="cat-label">${cat}</div>
+    ${items.map(([k,m])=>`
+      <div class="hw-model-card${n.modelKey===k?' selected':''}" onclick="selectModel('${k}')">
+        <div class="hw-model-name">${k}</div>
+        <div class="hw-model-vendor">${m.vendor} · ${m.desc}</div>
+        <div class="hw-specs-grid">
+          ${m.cpu?`<div class="hw-spec"><div class="hw-spec-val">${m.cpu}</div><div class="hw-spec-lab">vCPU</div></div>`:''}
+          ${m.ramGB?`<div class="hw-spec"><div class="hw-spec-val">${m.ramGB}GB</div><div class="hw-spec-lab">RAM</div></div>`:''}
+          ${m.vram?`<div class="hw-spec"><div class="hw-spec-val">${m.vram}GB</div><div class="hw-spec-lab">VRAM</div></div>`:''}
+          ${m.tflops?`<div class="hw-spec"><div class="hw-spec-val">${m.tflops}</div><div class="hw-spec-lab">TFLOPS</div></div>`:''}
+          ${m.diskMBs?`<div class="hw-spec"><div class="hw-spec-val">${m.diskMBs>=1000?(m.diskMBs/1000).toFixed(0)+'GB/s':m.diskMBs+'MB/s'}</div><div class="hw-spec-lab">Disk I/O</div></div>`:''}
+          ${m.netGbps?`<div class="hw-spec"><div class="hw-spec-val">${m.netGbps}Gbps</div><div class="hw-spec-lab">Network</div></div>`:''}
+          ${m.membwGBs?`<div class="hw-spec"><div class="hw-spec-val">${m.membwGBs}</div><div class="hw-spec-lab">Mem BW GB/s</div></div>`:''}
+          ${m.tdpW?`<div class="hw-spec"><div class="hw-spec-val">${m.tdpW}W</div><div class="hw-spec-lab">TDP</div></div>`:''}
+        </div>
+      </div>
+    `).join('')}
+  `).join('');
+}
+
+function selectModel(key){
+  const n=getNode(SIM.selId); if(!n) return;
+  n.modelKey=key; n.hw=HW_DB[key];
+  const p=derivePerf(n.hw);
+  document.getElementById('hw-tput').textContent=`${p.tput.toLocaleString()} req/s`;
+  document.getElementById('hw-conn').textContent=p.conn.toLocaleString();
+  document.getElementById('hw-lat').textContent=`${p.latMs}ms`;
+  document.getElementById('hw-membw').textContent=p.membw;
+  document.getElementById('hw-derived').style.display='';
+  renderModelList(n);
+  toast(`Hardware: ${key}`,'success',2000);
+  logEvent('i',`${n.name} → ${key}`);
+}
+
+function buildTTToggles(node){
+  const c=document.getElementById('tt-toggles'); c.innerHTML='';
+  TRAFFIC_TYPES.forEach(t=>{
+    const on=node.allowedTraffic.includes(t);
+    const col=TT_CSS[t];
+    const el=document.createElement('div');
+    el.className='tt-tag';
+    el.style.background=on?`${col}22`:'rgba(255,255,255,.03)';
+    el.style.borderColor=on?col:'rgba(255,255,255,.1)';
+    el.style.color=on?col:'#334455';
+    el.textContent=t;
+    el.onclick=()=>{
+      if(node.allowedTraffic.includes(t)) node.allowedTraffic=node.allowedTraffic.filter(x=>x!==t);
+      else node.allowedTraffic.push(t);
+      buildTTToggles(node);
+    };
+    c.appendChild(el);
+  });
+}
+
+function removeNode(id){
+  if(id==='internet'){toast("Can't delete Internet source",'warn');return;}
+  const mesh=SIM.meshes[id];
+  if(mesh){ SIM.scene.remove(mesh); delete SIM.meshes[id]; }
+  SIM.conns.filter(c=>c.from===id||c.to===id).forEach(c=>removeConn(c.id));
+  SIM.nodes=SIM.nodes.filter(n=>n.id!==id);
+  delete SIM.nCounters[id];
+  SIM.failed.delete(id);
+  // NEW CODE: clean up replication state
+  if (replicationState.primaryNodeId === id) {
+    replicationState.primaryNodeId = null;
+    const nextDb = SIM.nodes.find(n => (n.type==='db'||n.type==='nosql') && !SIM.failed.has(n.id));
+    if (nextDb) {
+      replicationState.primaryNodeId = nextDb.id;
+      logEvent('w', `Primary removed — ${nextDb.name} auto-promoted`);
+    }
+  }
+  delete replicationState.replicas[id];
+  delete cacheState[id];
+  // END NEW CODE
+  if(SIM.selId===id) deselect();
+  toast('Node removed','warn');
+}
+
+function repairNode(){
+  const id=SIM.selId; if(!id) return;
+  SIM.failed.delete(id);
+  const n=getNode(id); if(n) n.health=100;
+  const mesh=SIM.meshes[id];
+  if(mesh){const c=NODE_CFG[n.type]; mesh.material.color.setHex(c.col); mesh.material.emissiveIntensity=.12;}
+  toast('Node repaired ✓','success');
+  logEvent('s',`${getNode(id)?.name} repaired`);
+}
+
+function duplicateNode(){
+  const n=getNode(SIM.selId); if(!n||n.type==='internet') return;
+  const np=new THREE.Vector3(n.position.x+9,0,n.position.z+6);
+  const nn=createNode(n.type,np);
+  if(nn){
+    nn.hw=n.hw?{...n.hw}:null; nn.modelKey=n.modelKey;
+    nn.allowedTraffic=[...n.allowedTraffic]; nn.lbStrategy=n.lbStrategy;
+    toast(`Cloned ${n.name}`,'success'); selectNode(nn.id);
+  }
+}
+
+function deleteSelectedNode(){removeNode(SIM.selId);}
+
+function injectCrash(){
+  if(!SIM.running){toast('Start the simulation first','warn',2000);return;}
+  const nodes=SIM.nodes.filter(n=>n.type!=='internet');
+  if(!nodes.length){toast('No nodes to crash','warn');return;}
+  const tgt=SIM.selId&&SIM.selId!=='internet'?getNode(SIM.selId):nodes[Math.floor(Math.random()*nodes.length)];
+  if(!tgt) return;
+  SIM.failed.add(tgt.id);
+  const mesh=SIM.meshes[tgt.id];
+  if(mesh){mesh.material.color.setHex(0x200000);mesh.material.emissive.setHex(0xff0000);mesh.material.emissiveIntensity=.6;}
+  toast(`💀 NODE CRASH: ${tgt.name}`,'danger',4000);
+  logEvent('d',`CRASH: ${tgt.name} [hw: ${tgt.modelKey||'—'}]`);
+
+  // NEW CODE: primary DB failover on manual crash too
+  if ((tgt.type==='db'||tgt.type==='nosql') && replicationState.primaryNodeId===tgt.id) {
+    const aliveReplica = SIM.nodes.find(rn =>
+      (rn.type==='db'||rn.type==='nosql') && rn.id!==tgt.id && !SIM.failed.has(rn.id)
+    );
+    if (aliveReplica) {
+      replicationState.primaryNodeId = aliveReplica.id;
+      toast(`📢 ${aliveReplica.name} promoted to PRIMARY DB`,'warn',4000);
+      logEvent('w',`FAILOVER: ${aliveReplica.name} → primary`);
+    }
+  }
+  // END NEW CODE
+
+  const delay=18000/Math.max(1,SIM.speed);
+  setTimeout(()=>{
+    if(!SIM.failed.has(tgt.id)) return;
+    SIM.failed.delete(tgt.id);
+    const m=SIM.meshes[tgt.id];
+    if(m){const c=NODE_CFG[tgt.type];m.material.color.setHex(c.col);m.material.emissive.setHex(c.col);m.material.emissiveIntensity=.12;}
+    toast(`🔄 ${tgt.name} recovered`,'success',2000);
+    logEvent('s',`RECOVER: ${tgt.name}`);
+  }, delay);
+}
+
+function injectPartition(){
+  if(!SIM.running){toast('Start the simulation first','warn',2000);return;}
+  const valid=SIM.conns.filter(c=>!c.partitioned);
+  if(!valid.length){toast('No connections to partition','warn');return;}
+  const tgt=valid[Math.floor(Math.random()*valid.length)];
+  tgt.partitioned=true; SIM.partitions.add(tgt.id);
+  const fn=getNode(tgt.from),tn=getNode(tgt.to);
+  toast(`✂ PARTITION: ${fn?.name} ↔ ${tn?.name}`,'warn',3000);
+  logEvent('w',`PARTITION: ${fn?.name} ↔ ${tn?.name}`);
+  setTimeout(()=>{
+    tgt.partitioned=false;SIM.partitions.delete(tgt.id);
+    toast('Partition healed','success',1500);
+    logEvent('s',`HEALED: ${fn?.name} ↔ ${tn?.name}`);
+  }, 12000/Math.max(1,SIM.speed));
+}
+
+function injectSpike(){
+  if(!SIM.running){toast('Start the simulation first','warn',2000);return;}
+  const prev=SIM.rps;
+  SIM.rps=Math.min(200,prev*10);
+  document.getElementById('rps-slider').value=Math.min(50,SIM.rps);
+  document.getElementById('rps-val').textContent=`${SIM.rps} req/s`;
+  toast(`📈 SPIKE ×10 → ${SIM.rps} req/s`,'danger',3000);
+  logEvent('d',`SPIKE: RPS → ${SIM.rps}`);
+  setTimeout(()=>{
+    SIM.rps=prev;
+    document.getElementById('rps-slider').value=prev;
+    document.getElementById('rps-val').textContent=`${prev} req/s`;
+    toast('Traffic normalised','info',1500);
+    logEvent('i',`RPS restored → ${prev}`);
+  }, 8000/Math.max(1,SIM.speed));
+}
+
+function injectCascade(){
+  if(!SIM.running){toast('Start the simulation first','warn',2000);return;}
+  const nodes=SIM.nodes.filter(n=>n.type!=='internet');
+  if(nodes.length<2){toast('Need ≥2 nodes for cascade','warn');return;}
+  toast('🌊 CASCADING FAILURE incoming…','danger',4000);
+  logEvent('d','CASCADE initiated');
+  let i=0;
+  const crashed=[];
+  const step=()=>{
+    if(i>=Math.min(nodes.length,5)){
+      const recoverDelay=18000/Math.max(1,SIM.speed);
+      setTimeout(()=>{
+        crashed.forEach(n=>{
+          if(!SIM.failed.has(n.id)) return;
+          SIM.failed.delete(n.id);
+          const m=SIM.meshes[n.id];
+          if(m){const c=NODE_CFG[n.type];m.material.color.setHex(c.col);m.material.emissive.setHex(c.col);m.material.emissiveIntensity=.12;}
+          logEvent('s',`RECOVER (cascade): ${n.name}`);
+        });
+        toast('🔄 Cascade recovered','success',2500);
+      }, recoverDelay);
+      return;
+    }
+    const n=nodes[i++];
+    crashed.push(n);
+    SIM.failed.add(n.id); flashMesh(n.id);
+    logEvent('d',`CASCADE → ${n.name}`);
+    toast(`💥 ${n.name} failed`,'danger',2500);
+    setTimeout(step, 2200/Math.max(1,SIM.speed));
+  };
+  setTimeout(step,600);
+}
+
+function spawnBurst(type){
+  if(!SIM.running){toast('Start the simulation first','warn',2000);return;}
+  for(let i=0;i<25;i++) setTimeout(()=>spawnReq(type), i*40);
+  toast(`Burst ×25 ${type}`,'info',1500);
+}
+
+const ALL_TOOLS=['select','connect','delete','unlink','lb','fw','apigw','queue','server','k8s','db','nosql','cache','cdn','storage'];
+
+function setTool(t){
+  SIM.tool=t; SIM.connFrom=null;
+  document.getElementById('conn-hint').style.display='none';
+  ALL_TOOLS.forEach(id=>{const b=document.getElementById('tool-'+id);if(b)b.classList.toggle('active',id===t);});
+  if(!['select','connect','delete','unlink'].includes(t))
+    toast(`Click canvas to place ${NODE_CFG[t]?.name}`,'info',2000);
+}
+
+function setSpeed(s){
+  SIM.speed=s; SIM.running=s>0;
+  ['pause','play','fast','hyper'].forEach(id=>document.getElementById('btn-'+id)?.classList.remove('active'));
+  const map={0:'pause',1:'play',3:'fast',10:'hyper'};
+  document.getElementById('btn-'+(map[s]||'play'))?.classList.add('active');
+  document.getElementById('spd-lbl').textContent=s===0?'⏸':`${s}×`;
+}
+
+function setRPS(v){
+  SIM.rps=parseFloat(v);
+  document.getElementById('rps-val').textContent=`${SIM.rps} req/s`;
+}
+
+function calcCost(){
+  return SIM.nodes
+    .filter(n=>n.type!=='internet'&&n.hw)
+    .reduce((total,n)=>total+(n.hw.costPerHr||0),0);
+}
+
+function detectSPOF(){
+  const warnings=[];
+  SIM.nodes
+    .filter(n=>n.type!=='internet')
+    .forEach(n=>{
+      const inbound=SIM.conns.filter(c=>c.to===n.id);
+      if(inbound.length===1){
+        warnings.push(`⚠ SPOF: ${n.name} has only 1 inbound path`);
+      }
+      if((n.type==='db'||n.type==='nosql')&&
+         SIM.conns.find(c=>c.from==='internet'&&c.to===n.id)){
+        warnings.push(`🚨 CRITICAL: ${n.name} directly exposed to Internet`);
+      }
+    });
+  const hasFW=SIM.nodes.some(n=>n.type==='fw');
+  if(!hasFW&&SIM.nodes.filter(n=>n.type!=='internet').length>2){
+    warnings.push(`🚨 CRITICAL: No Firewall in architecture`);
+  }
+  return [...new Set(warnings)];
+}
+
+// ═══════════════════════════════════════════════════════════
+// MODIFIED CODE: UI UPDATES — adds Data State panel
+// ═══════════════════════════════════════════════════════════
+function updateUI(){
+  const m=Math.floor(SIM.elapsed/60), s=Math.floor(SIM.elapsed%60);
+  document.getElementById('elapsed').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  document.getElementById('d-rps').textContent=SIM.rps.toFixed(1);
+  document.getElementById('d-proc').textContent=SIM.totalProc.toLocaleString();
+  document.getElementById('d-fail').textContent=SIM.totalFail.toLocaleString();
+  document.getElementById('d-lat').textContent=`${SIM.p99.toFixed(0)}ms`;
+  document.getElementById('d-parts').textContent=SIM.partitions.size;
+
+  const online=SIM.nodes.filter(n=>n.type!=='internet'&&!SIM.failed.has(n.id)).length;
+  document.getElementById('d-online').textContent=online;
+  document.getElementById('d-failed').textContent=SIM.failed.size;
+  document.getElementById('d-conns').textContent=SIM.conns.length;
+
+  updateSLA();
+
+  if(SIM.selId){
+    const ctr=SIM.nCounters[SIM.selId];
+    if(ctr){
+      document.getElementById('cfg-load').textContent=`${ctr.load.toFixed(0)}%`;
+      document.getElementById('cfg-queue').textContent=ctr.q;
+      document.getElementById('cfg-proc').textContent=ctr.proc.toLocaleString();
+      document.getElementById('cfg-err').textContent=ctr.err;
+      const failed=SIM.failed.has(SIM.selId);
+      document.getElementById('cfg-health').textContent=failed?'FAILED ⚠':'OK ✓';
+      document.getElementById('cfg-health').style.color=failed?'var(--danger)':'var(--success)';
+      const lb=document.getElementById('cfg-load-bar');
+      lb.style.width=`${ctr.load}%`;
+      lb.style.background=ctr.load>80?'var(--danger)':ctr.load>60?'var(--warn)':'var(--accent)';
+    }
+  }
+
+  updateNodeMetrics();
+  drawSparkline();
+  updateDataStatePanel(); // NEW CODE
+
+  const costEl=document.getElementById('d-cost');
+  if(costEl) costEl.textContent=`$${calcCost().toFixed(2)}/hr`;
+
+  const spofEl=document.getElementById('spof-warnings');
+  if(spofEl){
+    const warns=detectSPOF();
+    spofEl.innerHTML=warns.length===0?''
+      :warns.map(w=>`<div style="font-size:9px;color:var(--warn);line-height:1.6;padding:1px 0">${w}</div>`).join('');
+  }
+}
+
+// NEW CODE: Data State Panel Updater
+function updateDataStatePanel() {
+  const el = document.getElementById('data-panel');
+  if (!el || el.style.display === 'none') return;
+
+  document.getElementById('ds-primary').textContent = replicationState.primaryValue;
+  document.getElementById('ds-writes').textContent = dataStats.writes.toLocaleString();
+  document.getElementById('ds-hits').textContent = dataStats.cacheHits.toLocaleString();
+  document.getElementById('ds-misses').textContent = dataStats.cacheMisses.toLocaleString();
+  document.getElementById('ds-stale').textContent = dataStats.staleReads.toLocaleString();
+
+  // Replica list
+  const repList = document.getElementById('replica-list');
+  const dbNodes = SIM.nodes.filter(n => n.type === 'db' || n.type === 'nosql');
+
+  if (dbNodes.length === 0) {
+    repList.innerHTML = '<div style="font-size:9px;color:var(--text3)">No DB nodes placed</div>';
+    document.getElementById('ds-rep-lag').textContent = '—';
+    return;
+  }
+
+  let totalLag = 0; let lagCount = 0;
+  repList.innerHTML = dbNodes.map(n => {
+    const isPrimary = replicationState.primaryNodeId === n.id;
+    const isFailed = SIM.failed.has(n.id);
+    const rep = replicationState.replicas[n.id];
+    const replicaVal = isPrimary ? replicationState.primaryValue : (rep ? rep.value : 0);
+    const lagMs = isPrimary ? 0 : (rep ? rep.lagMs : 0);
+    const isStale = !isPrimary && replicaVal !== replicationState.primaryValue;
+
+    if (!isPrimary && lagMs > 0) { totalLag += lagMs; lagCount++; }
+
+    let badgeClass = 'rb-sync';
+    let badgeLabel = isPrimary ? 'PRIMARY' : 'REPLICA';
+    if (isFailed) { badgeClass = 'rb-stale'; badgeLabel = 'FAILED'; }
+    else if (isStale) { badgeClass = 'rb-lag'; badgeLabel = 'LAGGING'; }
+
+    return `<div class="replica-row">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:9px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.name}</div>
+        <div style="font-size:8px;color:var(--text3)">val=${replicaVal}${lagMs > 10 ? ` · lag=${lagMs.toFixed(0)}ms` : ''}</div>
+      </div>
+      <span class="replica-badge ${badgeClass}">${badgeLabel}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('ds-rep-lag').textContent =
+    lagCount > 0 ? `${(totalLag / lagCount).toFixed(0)}ms` : '0ms';
+}
+// END NEW CODE
+
+function updateSLA(){
+  const c=document.getElementById('sla-bars');
+  const cols={READ:'#3b82f6',WRITE:'#f97316',SEARCH:'#06b6d4',STATIC:'#4ade80',UPLOAD:'#fbbf24'};
+  c.innerHTML=['READ','WRITE','SEARCH','STATIC','UPLOAD'].map(t=>{
+    const st=SIM.typeStats[t];
+    const tot=st.proc+st.fail;
+    const pct=tot>0?Math.round(st.proc/tot*100):100;
+    const col=pct>99?'var(--success)':pct>95?'var(--warn)':'var(--danger)';
+    return `<div class="sla-row">
+      <div class="sla-n" style="color:${cols[t]}">${t}</div>
+      <div class="sla-track"><div class="sla-fill" style="width:${pct}%;background:${col}"></div></div>
+      <div class="sla-v" style="color:${col}">${pct}%</div>
+    </div>`;
+  }).join('');
+}
+
+function updateNodeMetrics(){
+  const cont=document.getElementById('node-metrics-content');
+  if(!SIM.selId){cont.innerHTML='<div style="font-size:10px;color:var(--text3)">Select a node to inspect</div>';return;}
+  const n=getNode(SIM.selId);
+  const ctr=SIM.nCounters[SIM.selId];
+  if(!n||!ctr){return;}
+  const p=derivePerf(n.hw);
+  const model=n.modelKey||'—';
+
+  // NEW CODE: append data-specific info to inspector
+  let dataInfo = '';
+  if (n.type === 'cache') {
+    const cs = cacheState[n.id];
+    dataInfo = `
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+        <div style="font-size:9px;text-transform:uppercase;color:var(--text3);letter-spacing:.1em;margin-bottom:4px">Cache State</div>
+        <div class="sr"><span class="sl">Cached Value</span><span class="sv">${cs?.value ?? '—'}</span></div>
+        <div class="sr"><span class="sl">Cache Valid</span><span class="sv ${cs?.valid?'g':'r'}">${cs?.valid ? '✓ HOT' : '✕ COLD'}</span></div>
+      </div>`;
+  }
+  if (n.type === 'db' || n.type === 'nosql') {
+    const isPrimary = replicationState.primaryNodeId === n.id;
+    const rep = replicationState.replicas[n.id];
+    dataInfo = `
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+        <div style="font-size:9px;text-transform:uppercase;color:var(--text3);letter-spacing:.1em;margin-bottom:4px">DB Role</div>
+        <div class="sr"><span class="sl">Role</span><span class="sv ${isPrimary?'g':'y'}">${isPrimary ? '★ PRIMARY' : '⬡ REPLICA'}</span></div>
+        <div class="sr"><span class="sl">Data Value</span><span class="sv">${isPrimary ? replicationState.primaryValue : (rep?.value ?? 0)}</span></div>
+        ${!isPrimary ? `<div class="sr"><span class="sl">Rep Lag</span><span class="sv y">${rep?.lagMs > 10 ? rep.lagMs.toFixed(0)+'ms' : '0ms'}</span></div>` : ''}
+        <div class="sr"><span class="sl">Stale?</span><span class="sv ${!isPrimary && rep && rep.value !== replicationState.primaryValue ? 'r' : 'g'}">${!isPrimary && rep && rep.value !== replicationState.primaryValue ? 'YES' : 'NO'}</span></div>
+      </div>`;
+  }
+  // END NEW CODE
+
+  cont.innerHTML=`
+    <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:6px;font-family:'Space Grotesk',sans-serif">${n.name}</div>
+    <div style="font-size:9px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.1em">${model}</div>
+    <div class="sr"><span class="sl">CPU Load</span><span class="sv">${ctr.load.toFixed(0)}%</span></div>
+    <div class="sr"><span class="sl">In-flight Reqs</span><span class="sv">${ctr.q}</span></div>
+    <div class="sr"><span class="sl">Max Throughput</span><span class="sv g">${p.tput.toLocaleString()} req/s</span></div>
+    <div class="sr"><span class="sl">Base Latency</span><span class="sv y">${p.latMs}ms</span></div>
+    <div class="sr"><span class="sl">Conn Pool</span><span class="sv">${p.conn.toLocaleString()}</span></div>
+    <div class="sr"><span class="sl">Mem Bandwidth</span><span class="sv p">${p.membw}</span></div>
+    <div class="sr"><span class="sl">Processed</span><span class="sv g">${ctr.proc.toLocaleString()}</span></div>
+    <div class="sr"><span class="sl">Errors</span><span class="sv r">${ctr.err}</span></div>
+    ${dataInfo}
+  `;
+}
+
+function drawSparkline(){
+  const canvas=document.getElementById('sparkline');
+  if(!canvas||SIM.sparkData.length<2) return;
+  const W=canvas.offsetWidth,H=36;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const data=SIM.sparkData.slice(-W);
+  const max=Math.max(1,...data), min=Math.min(...data);
+  const range=max-min||1;
+  const grad=ctx.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0,'#00b4ff'); grad.addColorStop(1,'#00ffc8');
+  ctx.strokeStyle=grad; ctx.lineWidth=1.5;
+  ctx.shadowBlur=4; ctx.shadowColor='#00b4ff';
+  ctx.beginPath();
+  data.forEach((v,i)=>{
+    const x=(i/(data.length-1))*W;
+    const y=H-((v-min)/range)*(H-3)-2;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+}
+
+function drawMinimap(){
+  const canvas=document.getElementById('mm-canvas'); if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,130,90);
+  ctx.fillStyle='rgba(2,4,10,.85)'; ctx.fillRect(0,0,130,90);
+  const sc=2.2,ox=65,oy=45;
+  SIM.conns.forEach(c=>{
+    const fn=getNode(c.from),tn=getNode(c.to); if(!fn||!tn) return;
+    ctx.strokeStyle=c.partitioned?'rgba(255,100,0,.7)':'rgba(0,255,200,.3)';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(fn.position.x/sc+ox,fn.position.z/sc+oy);
+    ctx.lineTo(tn.position.x/sc+ox,tn.position.z/sc+oy);
+    ctx.stroke();
+  });
+  SIM.nodes.forEach(n=>{
+    // NEW CODE: highlight primary DB with gold on minimap
+    let colHex = SIM.failed.has(n.id) ? '#ff2d55' : ('#'+(NODE_CFG[n.type]?.col||0x888888).toString(16).padStart(6,'0'));
+    if ((n.type==='db'||n.type==='nosql') && replicationState.primaryNodeId===n.id && !SIM.failed.has(n.id)) colHex = '#ffd700';
+    if (n.type==='cache' && cacheState[n.id]?.valid) colHex = '#00ffdd';
+    // END NEW CODE
+    ctx.fillStyle=colHex;
+    ctx.beginPath();
+    ctx.arc(n.position.x/sc+ox, n.position.z/sc+oy, n.id==='internet'?4:2.5, 0, Math.PI*2);
+    ctx.fill();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// MODIFIED CODE: showTip — adds cache/DB data info to tooltip
+// ═══════════════════════════════════════════════════════════
+function showTip(node,x,y){
+  if(!node) return;
+  const ctr=SIM.nCounters[node.id]||{};
+  const failed=SIM.failed.has(node.id);
+  const autoCrash=SIM.autoCrashed.has(node.id);
+  const p=derivePerf(node.hw);
+  const tip=document.getElementById('tip');
+  const cfg=OVERLOAD_CFG[node.type];
+  const overT=SIM.overloadTimer[node.id]||0;
+  const overPct=cfg&&cfg.sustainSec<900?Math.min(100,(overT/cfg.sustainSec)*100):0;
+
+  let overloadHTML='';
+  if(cfg&&cfg.sustainSec<900&&!failed){
+    const statusLabel=overPct>75?'⚠ CRASH IMMINENT':overPct>40?'⚠ Overloading':'● Stable';
+    const statusColor=overPct>75?'#ff2d55':overPct>40?'#ffaa00':'#00e87a';
+    const overColor=overPct>75?'#ff2d55':overPct>40?'#ffaa00':'#00e87a';
+    overloadHTML=`
+    <div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.07)">
+      <div style="font-size:9px;color:var(--text3);margin-bottom:3px">Overload Danger</div>
+      <div style="background:rgba(0,0,0,.5);border-radius:3px;height:5px;overflow:hidden;margin-bottom:3px">
+        <div style="width:${overPct}%;height:100%;background:${overColor};border-radius:3px"></div>
+      </div>
+      <div style="font-size:9px;color:${statusColor};font-weight:700">${statusLabel}</div>
+      <div style="font-size:8px;color:var(--text3)">Crash at ${cfg.threshold}% × ${cfg.sustainSec}s</div>
+    </div>`;
+  }
+  if(failed){
+    overloadHTML=`<div style="margin-top:5px;font-size:10px;color:#ff4466;font-weight:700">${autoCrash?'⚡ AUTO-CRASH':'💀 MANUAL CRASH'}</div>`;
+  }
+
+  // NEW CODE: data state tooltip section
+  let dataHTML = '';
+  if (node.type === 'cache') {
+    const cs = cacheState[node.id];
+    dataHTML = `<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.07)">
+      <div style="font-size:9px;color:${cs?.valid?'#00ffdd':'#aaa'};font-weight:700">${cs?.valid ? '⚡ CACHE HOT — val='+cs.value : '○ CACHE COLD'}</div>
+    </div>`;
+  }
+  if (node.type === 'db' || node.type === 'nosql') {
+    const isPrimary = replicationState.primaryNodeId === node.id;
+    const rep = replicationState.replicas[node.id];
+    const replicaVal = isPrimary ? replicationState.primaryValue : (rep?.value ?? 0);
+    const isStale = !isPrimary && replicaVal !== replicationState.primaryValue;
+    dataHTML = `<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.07)">
+      <div style="font-size:10px;color:${isPrimary?'#ffd700':'#88aaff'};font-weight:700">${isPrimary ? '★ PRIMARY DB' : '⬡ REPLICA'}</div>
+      <div style="font-size:9px;color:var(--text2)">value=${replicaVal}${isStale ? ' <span style="color:#ff8888">(STALE)</span>' : ''}</div>
+      ${!isPrimary && rep?.lagMs > 10 ? `<div style="font-size:9px;color:var(--warn)">Replication lag: ${rep.lagMs.toFixed(0)}ms</div>` : ''}
+    </div>`;
+  }
+  // END NEW CODE
+
+  tip.innerHTML=`
+    <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--text);margin-bottom:2px">${node.name}</div>
+    <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">${node.modelKey||node.type}</div>
+    <div style="font-size:10px;color:${failed?'var(--danger)':'var(--success)'};margin-bottom:5px">${failed?'⚠ FAILED':'● Online'}</div>
+    <div style="font-size:10px;color:var(--text2)">Load: <b style="color:${(ctr.load||0)>80?'#ff4466':(ctr.load||0)>60?'#ffaa00':'#00e87a'}">${(ctr.load||0).toFixed(0)}%</b> · Queue: ${ctr.q||0}</div>
+    <div style="font-size:10px;color:var(--text2)">Cap: ${p.tput.toLocaleString()} req/s</div>
+    <div style="font-size:9px;color:var(--text3);margin-top:4px">${NODE_CFG[node.type]?.desc||''}</div>
+    ${dataHTML}
+    ${overloadHTML}
+  `;
+  tip.style.display='block';
+  tip.style.left=`${Math.min(x+16,innerWidth-250)}px`;
+  tip.style.top=`${Math.min(y-12,innerHeight-200)}px`;
+}
+function hideTip(){document.getElementById('tip').style.display='none';}
+
+function toast(msg,type='info',dur=2500){
+  const c=document.getElementById('toasts');
+  const el=document.createElement('div');
+  el.className=`toast t-${type}`;
+  el.textContent=msg;
+  c.appendChild(el);
+  setTimeout(()=>el.remove(),dur);
+}
+
+function logEvent(type,msg){
+  const c=document.getElementById('elog-entries');
+  const m=Math.floor(SIM.elapsed/60),s=Math.floor(SIM.elapsed%60);
+  const el=document.createElement('div');
+  el.className=`le ${type}`;
+  el.innerHTML=`<span class="le-time">${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</span><span class="le-msg">${msg}</span>`;
+  c.prepend(el);
+  while(c.children.length>60) c.lastChild.remove();
+}
+
+function exportArch(){
+  const data={
+    nodes:SIM.nodes.filter(n=>n.type!=='internet').map(n=>({
+      id:n.id,type:n.type,name:n.name,
+      position:{x:n.position.x,z:n.position.z},
+      modelKey:n.modelKey,hw:n.hw,
+      allowedTraffic:n.allowedTraffic,lbStrategy:n.lbStrategy
+    })),
+    connections:SIM.conns.map(c=>({from:c.from,to:c.to,allowedTraffic:c.allowedTraffic,weight:c.weight})),
+    rps:SIM.rps
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='distsim-architecture.json'; a.click();
+  toast('Exported!','success');
+}
+
+function saveDesign(name){
+  const designs=JSON.parse(localStorage.getItem('distsim_designs')||'[]');
+  const data={
+    name:name||`Design ${new Date().toLocaleTimeString()}`,
+    timestamp:Date.now(),
+    nodes:SIM.nodes.filter(n=>n.type!=='internet').map(n=>({
+      id:n.id,type:n.type,name:n.name,
+      position:{x:n.position.x,z:n.position.z},
+      modelKey:n.modelKey,allowedTraffic:n.allowedTraffic,
+      lbStrategy:n.lbStrategy
+    })),
+    connections:SIM.conns.map(c=>({from:c.from,to:c.to,allowedTraffic:c.allowedTraffic,weight:c.weight})),
+    rps:SIM.rps
+  };
+  designs.unshift(data);
+  if(designs.length>5) designs.pop();
+  localStorage.setItem('distsim_designs',JSON.stringify(designs));
+  toast('Design saved ✓','success');
+  renderSavedDesigns();
+}
+
+function loadDesign(index){
+  const designs=JSON.parse(localStorage.getItem('distsim_designs')||'[]');
+  if(!designs[index]) return;
+  const d=designs[index];
+  [...SIM.nodes].forEach(n=>{ if(n.type!=='internet') deleteNode(n.id); });
+  SIM.conns=[]; SIM.lines={};
+  setTimeout(()=>{
+    d.nodes.forEach(nd=>{
+      const pos=new THREE.Vector3(nd.position.x,0,nd.position.z);
+      const n=createNode(nd.type,pos);
+      n.name=nd.name;
+      if(nd.modelKey&&HW_DB[nd.modelKey]){n.modelKey=nd.modelKey;n.hw=HW_DB[nd.modelKey];}
+      if(nd.allowedTraffic) n.allowedTraffic=nd.allowedTraffic;
+      if(nd.lbStrategy) n.lbStrategy=nd.lbStrategy;
+      n._savedId=nd.id;
+    });
+    d.connections.forEach(c=>{
+      const fn=SIM.nodes.find(n=>n._savedId===c.from||n.id===c.from);
+      const tn=SIM.nodes.find(n=>n._savedId===c.to||n.id===c.to);
+      const fromId=fn?fn.id:c.from;
+      const toId=tn?tn.id:c.to;
+      if(getNode(fromId)&&getNode(toId)) createConn(fromId,toId);
+    });
+    if(d.rps){SIM.rps=d.rps;document.getElementById('rps-slider').value=d.rps;document.getElementById('rps-val').textContent=`${d.rps} req/s`;}
+    toast(`Loaded: ${d.name}`,'success');
+    logEvent('s',`Design loaded: ${d.name}`);
+    updateCam();
+  },100);
+}
+
+function deleteNode(nodeId){
+  const idx=SIM.nodes.findIndex(n=>n.id===nodeId);
+  if(idx===-1) return;
+  const mesh=SIM.meshes[nodeId];
+  if(mesh) SIM.scene.remove(mesh);
+  delete SIM.meshes[nodeId];
+  delete SIM.nCounters[nodeId];
+  SIM.nodes.splice(idx,1);
+  SIM.conns=SIM.conns.filter(c=>{
+    if(c.from===nodeId||c.to===nodeId){
+      const l=SIM.lines[c.id]; if(l) SIM.scene.remove(l);
+      delete SIM.lines[c.id]; return false;
+    }
+    return true;
+  });
+  SIM.failed.delete(nodeId);
+  SIM.partitions.delete(nodeId);
+}
+
+function renderSavedDesigns(){
+  const el=document.getElementById('saved-designs-list'); if(!el) return;
+  const designs=JSON.parse(localStorage.getItem('distsim_designs')||'[]');
+  if(designs.length===0){
+    el.innerHTML='<div style="font-size:10px;color:var(--text3);padding:8px 0">No saved designs yet.</div>';
+    return;
+  }
+  el.innerHTML=designs.map((d,i)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:11px;color:var(--text);font-weight:600">${d.name}</div>
+        <div style="font-size:9px;color:var(--text3)">${new Date(d.timestamp).toLocaleString()} · ${d.nodes.length} nodes</div>
+      </div>
+      <button onclick="loadDesign(${i});document.getElementById('main-menu').style.display='none';showUI();SIM.running=true;SIM.lastT=performance.now();"
+        style="padding:4px 12px;border-radius:6px;font-size:10px;font-family:'IBM Plex Mono',monospace;font-weight:600;cursor:pointer;background:rgba(0,180,255,.1);border:1px solid rgba(0,180,255,.3);color:var(--accent)">Load</button>
+    </div>
+  `).join('');
+}
+
+// NEW CODE: Reset also clears data state
+function resetSim(){
+  SIM.running=false; SIM.totalProc=0; SIM.totalFail=0;
+  SIM.elapsed=0; SIM.latencies=[]; SIM.sparkData=[]; SIM.p99=0;
+  SIM.failed.clear(); SIM.partitions.clear();
+  SIM.reqObjs.forEach(r=>SIM.scene.remove(r.mesh)); SIM.reqObjs=[];
+  SIM.requests=[]; SIM.conns.forEach(c=>{c.partitioned=false;});
+  TRAFFIC_TYPES.forEach(t=>{SIM.typeStats[t]={proc:0,fail:0,lats:[]};});
+  Object.keys(SIM.nCounters).forEach(k=>{SIM.nCounters[k]={proc:0,fail:0,q:0,load:0,err:0};});
+  SIM.overloadTimer={}; SIM.autoCrashed.clear();
+
+  // Reset data state
+  dataStore.value = 0;
+  replicationState.primaryValue = 0;
+  Object.keys(replicationState.replicas).forEach(k => {
+    replicationState.replicas[k] = { value: 0, lagMs: 0, lastSyncAt: 0 };
+  });
+  Object.keys(cacheState).forEach(k => {
+    cacheState[k] = { value: 0, valid: false, lastUpdate: 0 };
+  });
+  dataStats.writes = 0;
+  dataStats.cacheHits = 0;
+  dataStats.cacheMisses = 0;
+  dataStats.staleReads = 0;
+  dataStats.totalReads = 0;
+  dataStats.pendingReplications = 0;
+  // END NEW CODE
+
+  SIM.nodes.forEach(n=>{const m=SIM.meshes[n.id];const c=NODE_CFG[n.type];if(m&&c){m.material.color.setHex(c.col);m.material.emissiveIntensity=.12;}});
+  setSpeed(1); toast('Simulation reset','info'); logEvent('i','Reset');
+}
+
+function loadExample(){
+  startSim();
+  setTimeout(()=>{
+    const fw   = createNode('fw',      new THREE.Vector3(-12,0,0));
+    const gw   = createNode('apigw',   new THREE.Vector3(-1,0,0));
+    const lb   = createNode('lb',      new THREE.Vector3(10,0,0));
+    const k1   = createNode('k8s',     new THREE.Vector3(21,0,-9));
+    const k2   = createNode('k8s',     new THREE.Vector3(21,0,9));
+    const cache= createNode('cache',   new THREE.Vector3(32,0,-5));
+    const db   = createNode('db',      new THREE.Vector3(32,0,5));
+    const stor = createNode('storage', new THREE.Vector3(32,0,17));
+    const cdn  = createNode('cdn',     new THREE.Vector3(2,0,-18));
+    const q    = createNode('queue',   new THREE.Vector3(10,0,-14));
+    // NEW CODE: add replica DB in example
+    const dbReplica = createNode('db', new THREE.Vector3(42,0,5));
+    dbReplica.name = 'SQL DB Replica 1';
+    // END NEW CODE
+
+    fw.modelKey='NGINX (4 vCPU)';       fw.hw=HW_DB['NGINX (4 vCPU)'];
+    gw.modelKey='AWS ALB (Application LB)'; gw.hw=HW_DB['AWS ALB (Application LB)'];
+    lb.modelKey='HAProxy (16 vCPU)';    lb.hw=HW_DB['HAProxy (16 vCPU)'];
+    k1.modelKey='AWS c7i.24xlarge';     k1.hw=HW_DB['AWS c7i.24xlarge'];
+    k2.modelKey='AWS c7i.24xlarge';     k2.hw=HW_DB['AWS c7i.24xlarge'];
+    cache.modelKey='Redis Enterprise (r7g.4xlarge)'; cache.hw=HW_DB['Redis Enterprise (r7g.4xlarge)'];
+    db.modelKey='AWS db.r8g.16xlarge (RDS)';         db.hw=HW_DB['AWS db.r8g.16xlarge (RDS)'];
+    stor.modelKey='AWS db.r8g.16xlarge (RDS)'; stor.hw=HW_DB['AWS db.r8g.16xlarge (RDS)'];
+    cdn.modelKey='Cloudflare CDN Edge'; cdn.hw=HW_DB['Cloudflare CDN Edge'];
+    dbReplica.modelKey='AWS db.r8g.16xlarge (RDS)'; dbReplica.hw=HW_DB['AWS db.r8g.16xlarge (RDS)'];
+
+    fw.allowedTraffic=[...TRAFFIC_TYPES];
+    gw.allowedTraffic=['READ','WRITE','SEARCH','STATIC','UPLOAD'];
+    lb.lbStrategy='least-conn';
+    k1.allowedTraffic=['READ','WRITE','SEARCH']; k1.lbStrategy='round-robin';
+    k2.allowedTraffic=['READ','WRITE','UPLOAD','STATIC'];
+    cache.allowedTraffic=['READ','STATIC'];
+    db.allowedTraffic=['READ','WRITE','SEARCH'];
+    stor.allowedTraffic=['STATIC','UPLOAD'];
+    cdn.allowedTraffic=['STATIC','READ'];
+    q.allowedTraffic=['WRITE','UPLOAD'];
+    dbReplica.allowedTraffic=['READ','SEARCH'];
+
+    createConn('internet', fw.id);
+    createConn(fw.id,  gw.id);
+    createConn(gw.id,  lb.id);
+    createConn(gw.id,  q.id);
+    createConn(lb.id,  k1.id);
+    createConn(lb.id,  k2.id);
+    createConn(k1.id,  cache.id);
+    createConn(k2.id,  cache.id);
+    createConn(cache.id, db.id);
+    createConn(k1.id,  db.id);
+    createConn(k2.id,  stor.id);
+    createConn(q.id,   k2.id);
+    createConn('internet', cdn.id);
+    createConn(cdn.id, stor.id);
+    // NEW CODE: connect replica to primary DB for replication display
+    createConn(db.id,  dbReplica.id);
+    createConn(k1.id,  dbReplica.id); // K8s can read from replica
+    // END NEW CODE
+
+    toast('Example architecture loaded 🏗 (incl. DB Replica)','success',3000);
+    logEvent('s','Example: API + K8s + CDN + RDS + Replica loaded');
+    updateCam();
+  },200);
+}
+
+function showUI(){
+  ['time-bar','rps-bar','stats-panel','chaos-panel','metrics-panel','elog','toolbar','minimap','data-panel']
+    .forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
+}
+
+function startSim(){
+  document.getElementById('main-menu').style.display='none';
+  showUI();
+  SIM.running=true; SIM.lastT=performance.now();
+  setSpeed(1);
+  logEvent('i','Simulation started');
+}
+
+function showMainMenu(){
+  setSpeed(0);
+  document.getElementById('main-menu').style.display='flex';
+  renderSavedDesigns();
+}
+
+function showHelp(){
+  toast('S=Select · C=Connect · Del=Delete · Space=Pause · ESC=Cancel · Scroll=Zoom · Right-drag=Rotate','info',6000);
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  switch(e.key){
+    case 's': setTool('select'); break;
+    case 'c': setTool('connect'); break;
+    case 'd': case 'Delete': if(SIM.selId) deleteSelectedNode(); else setTool('delete'); break;
+    case ' ': e.preventDefault(); setSpeed(SIM.speed>0?0:1); break;
+    case 'Escape': deselect(); SIM.connFrom=null; document.getElementById('conn-hint').style.display='none'; setTool('select'); break;
+    case '1': setSpeed(1); break;
+    case '3': setSpeed(3); break;
+    case '0': setSpeed(10); break;
+    case 'r': SIM.orbitT.set(0,0,0); SIM.theta=Math.PI*.3; SIM.phi=Math.PI*.22; SIM.radius=58; updateCam(); break;
+  }
+});
+
+window.addEventListener('DOMContentLoaded',()=>{
+  initThree();
+  createInternetNode();
+  updateCam();
+  SIM.lastT=performance.now();
+  loop(performance.now());
+  renderSavedDesigns();
+});
+</script>
+</body>
+</html>
